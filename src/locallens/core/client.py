@@ -1,0 +1,62 @@
+"""Client HTTP per /v1/chat/completions. Prompt/modello dal preset, mai hardcoded."""
+import json
+import urllib.request
+from collections.abc import Callable
+
+from locallens.core.errori import InferenzaError
+
+
+def build_chat_payload(immagine_b64: str, prompt_system: str, modello: str) -> dict:
+    return {
+        "model": modello,
+        "messages": [
+            {"role": "system", "content": prompt_system},
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": prompt_system},
+                    {
+                        "type": "image_url",
+                        "image_url": {"url": f"data:image/png;base64,{immagine_b64}"},
+                    },
+                ],
+            },
+        ],
+    }
+
+
+def parse_chat_text(risposta: dict) -> str:
+    try:
+        content = risposta["choices"][0]["message"]["content"]
+    except (KeyError, IndexError, TypeError) as e:
+        raise InferenzaError(f"risposta chat non valida: {e}") from e
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        return "".join(p.get("text", "") for p in content if isinstance(p, dict))
+    raise InferenzaError("content non testuale")
+
+
+def invia_chat(
+    base_url: str,
+    payload: dict,
+    post: Callable[[str, dict], dict] | None = None,
+    timeout: int = 120,
+) -> str:
+    url = base_url.rstrip("/") + "/v1/chat/completions"
+    try:
+        if post is None:
+            req = urllib.request.Request(
+                url,
+                data=json.dumps(payload).encode(),
+                headers={"Content-Type": "application/json"},
+            )
+            with urllib.request.urlopen(req, timeout=timeout) as r:
+                risposta = json.load(r)
+        else:
+            risposta = post(url, payload)
+    except InferenzaError:
+        raise
+    except Exception as e:
+        raise InferenzaError(f"chiamata chat fallita: {e}") from e
+    return parse_chat_text(risposta)

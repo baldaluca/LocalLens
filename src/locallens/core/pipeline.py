@@ -3,9 +3,9 @@ import time
 from collections.abc import Callable
 from dataclasses import dataclass
 
+from locallens.core.errori import InferenzaError
 
-class InferenzaError(Exception):
-    pass
+__all__ = ["EstrazionePagina", "InferenzaError", "elabora_pagine"]
 
 
 @dataclass(frozen=True)
