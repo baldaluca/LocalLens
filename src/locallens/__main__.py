@@ -33,8 +33,14 @@ def costruisci_engine():
             stato + " (solo CPU)",
             "Solo CPU: nessun backend GPU utilizzabile.",
         )
+    from locallens.config.pesi import risolvi_pesi
+
     try:
-        handle = BackendManager().start(info.candidati[0], preset=preset)
+        modello, mmproj = risolvi_pesi(preset)
+    except FileNotFoundError as e:
+        return _solo_cpu(str(e)), stato + " (solo CPU)", f"Solo CPU: {e}"
+    try:
+        handle = BackendManager().start(info.candidati[0], preset=preset, modello=modello, mmproj=mmproj)
         engine = crea_engine(handle.base_url, preset, motore=info.candidati[0])
         return engine, f"{stato} • {handle.base_url}", ""
     except (FileNotFoundError, RuntimeError, OSError) as e:
