@@ -14,6 +14,7 @@ DEFAULTS = {
     "dpi_pdf": 300,
     "max_side_px": 2048,
     "contrasto": False,
+    "tema": "chiaro",
 }
 
 

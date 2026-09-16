@@ -35,7 +35,7 @@ class DialogoImpostazioni(QDialog):
             "Attenzione privacy: l'URL non punta alla rete locale, "
             "immagini e testo lasceranno questa macchina."
         )
-        self.avviso.setStyleSheet("color: #a00;")
+        self.avviso.setObjectName("avviso")
         self.avviso.hide()
         layout.addRow(self.avviso)
 

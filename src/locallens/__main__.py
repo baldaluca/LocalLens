@@ -50,6 +50,7 @@ def main() -> int:
     finestra = MainWindow()
     finestra.conf = conf
     finestra.set_ricostruttore(costruisci_da_conf)
+    finestra.set_tema(conf.get("tema", "chiaro"))
     engine, stato, banner = costruisci_da_conf(conf)
     finestra.set_engine(engine)
     finestra.set_stato(stato)

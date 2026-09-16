@@ -15,6 +15,7 @@ from PySide6.QtWidgets import (
 )
 
 from locallens.app.impostazioni import DialogoImpostazioni
+from locallens.app.tema import NOMI_TEMI, qss
 from locallens.app.worker import OcrWorker
 from locallens.config.settings import salva as salva_impostazioni
 from locallens.core.orchestrator import Estrazione, OcrEngine
@@ -25,13 +26,16 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.setWindowTitle("LocalLens")
         centrale = QWidget()
+        centrale.setObjectName("centrale")
         self.setCentralWidget(centrale)
         layout = QVBoxLayout(centrale)
 
         self.banner = QLabel()
-        self.banner.setStyleSheet("background: #fff3cd; padding: 6px;")
+        self.banner.setObjectName("banner")
         self.banner.hide()
         layout.addWidget(self.banner)
+        self.tema_corrente = "chiaro"
+        self.setStyleSheet(qss(self.tema_corrente))
 
         corpo = QHBoxLayout()
         layout.addLayout(corpo)
@@ -65,10 +69,15 @@ class MainWindow(QMainWindow):
         self.btn_schermo.clicked.connect(lambda: self._da_screenshot())
         self.btn_setup = QPushButton("Impostazioni")
         self.btn_setup.clicked.connect(lambda: self._impostazioni())
+        self.btn_tema = QPushButton("Tema: chiaro")
+        self.btn_tema.clicked.connect(lambda: self.cambia_tema())
+        for b in (self.btn_apri, self.btn_incolla, self.btn_schermo, self.btn_setup, self.btn_tema):
+            b.setProperty("secondario", "true")
         ingressi.addWidget(self.btn_apri)
         ingressi.addWidget(self.btn_incolla)
         ingressi.addWidget(self.btn_schermo)
         ingressi.addWidget(self.btn_setup)
+        ingressi.addWidget(self.btn_tema)
 
         self.progress = QProgressBar()
         self.progress.hide()
@@ -78,6 +87,17 @@ class MainWindow(QMainWindow):
         self._worker: OcrWorker | None = None
         self._engine: OcrEngine | None = None
         self.conf: dict = {"sorgente": "bundlato", "url_esterno": "", "preset_id": ""}
+
+    def set_tema(self, nome: str) -> None:
+        if nome not in NOMI_TEMI:
+            raise ValueError(f"tema ignoto: {nome}")
+        self.tema_corrente = nome
+        self.setStyleSheet(qss(nome))
+        self.btn_tema.setText(f"Tema: {nome}")
+
+    def cambia_tema(self) -> None:
+        self.set_tema("scuro" if self.tema_corrente == "chiaro" else "chiaro")
+        self.conf["tema"] = self.tema_corrente
 
     def set_engine(self, engine: OcrEngine) -> None:
         self._engine = engine
