@@ -1,6 +1,7 @@
 """Pipeline Documento → Pagine → Estrazioni. Sequenziale, 1 retry, poi fallback CPU."""
 import time
 import urllib.error
+from collections import Counter
 from collections.abc import Callable
 from dataclasses import dataclass
 
@@ -16,6 +17,36 @@ class EstrazionePagina:
     motore_usato: str
     ms: int = 0
     nota: str | None = None
+
+
+def _motivo_anomalia(testo: str) -> str | None:
+    """Output del VLM andato storto: eco del prompt, loop, escape letterali.
+
+    Ritorna il motivo (per nota/diario) oppure None se il testo è accettabile.
+    Soglie conservative: scatta solo su output lunghi e marcatamente degeneri,
+    mai su trascrizioni brevi o tabelle/codice legittimi.
+    """
+    n = len(testo)
+    if n < 500:
+        return None
+    if testo.count("\\n") > 100:
+        return "output anomalo: escape eccessivi"
+    righe = [r.strip() for r in testo.splitlines() if r.strip()]
+    if righe:
+        comune, freq = Counter(righe).most_common(1)[0]
+        if freq >= 5 and len(comune) > 20:
+            return "output anomalo: ripetizione in loop"
+    frasi = [s.strip() for s in testo.replace("\n", " ").split(".") if len(s.strip()) > 10]
+    if len(frasi) >= 30:
+        _top, freq = Counter(frasi).most_common(1)[0]
+        if freq >= 10 or (len(frasi) >= 50 and len(set(frasi)) / len(frasi) < 0.25):
+            return "output anomalo: ripetizione in loop"
+    compatti = "".join(testo.split())
+    if compatti:
+        alnum = sum(c.isalnum() for c in compatti)
+        if alnum / len(compatti) < 0.10:
+            return "output anomalo: testo senza contenuto"
+    return None
 
 
 def _è_timeout(e: InferenzaError) -> bool:
@@ -57,6 +88,10 @@ def elabora_pagine(
                 testo, motore = infer(i, img)
                 if not testo.strip():
                     ultimo_errore = "output vuoto/anomalo"
+                    continue
+                motivo = _motivo_anomalia(testo)
+                if motivo is not None:
+                    ultimo_errore = motivo
                     continue
                 riuscito = EstrazionePagina(i, testo, motore, _ms(t0))
                 break
