@@ -25,6 +25,11 @@ class MainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
         self.setWindowTitle("LocalLens")
+        from PySide6.QtGui import QIcon
+
+        from locallens.app.icone import percorso_icona
+
+        self.setWindowIcon(QIcon(percorso_icona()))
         centrale = QWidget()
         centrale.setObjectName("centrale")
         self.setCentralWidget(centrale)

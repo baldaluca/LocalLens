@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=LocalLens
+Comment=OCR desktop interamente locale (GPU + fallback CPU)
+Exec=locallens
+Icon=locallens
+Terminal=false
+Type=Application
+Categories=Graphics;Office;
+StartupWMClass=locallens

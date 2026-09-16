@@ -46,6 +46,16 @@ def main() -> int:
     from locallens.config.settings import carica
 
     app = QApplication(sys.argv)
+    app.setApplicationName("LocalLens")
+    app.setDesktopFileName("locallens")
+    from PySide6.QtGui import QIcon
+
+    from locallens.app.icone import percorso_icona
+
+    try:
+        app.setWindowIcon(QIcon(percorso_icona()))
+    except FileNotFoundError:
+        pass
     conf = carica()
     finestra = MainWindow()
     finestra.conf = conf

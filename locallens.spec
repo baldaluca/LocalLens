@@ -13,6 +13,7 @@ a = Analysis(
     binaries=[],
     datas=[
         ("presets/*.toml", "presets"),
+        ("assets/icons/*.png", "assets/icons"),
         (f"bins/{OS}", f"bins/{OS}"),
     ],
     hiddenimports=["locallens.app.finestra", "locallens.app.impostazioni"],
@@ -26,6 +27,7 @@ exe = EXE(
     [],
     exclude_binaries=True,
     name="locallens",
+    icon="assets/icons/locallens.ico",
     console=False,
 )
 coll = COLLECT(
