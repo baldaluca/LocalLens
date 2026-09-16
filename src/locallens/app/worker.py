@@ -1,5 +1,7 @@
 """Worker QRunnable: esegue OcrEngine fuori dal GUI thread, notifica via segnali."""
 
+import threading
+
 from PySide6.QtCore import QObject, QRunnable, Signal
 
 
@@ -17,6 +19,11 @@ class OcrWorker(QRunnable):
         self.immagini = immagini
         self.diario = diario
         self.segnali = SegnaliWorker()
+        self._ferma = threading.Event()
+
+    def annulla(self) -> None:
+        """Segnala l'interruzione: la Pagina corrente finisce, le altre saltano."""
+        self._ferma.set()
 
     def run(self) -> None:
         try:
@@ -26,6 +33,7 @@ class OcrWorker(QRunnable):
             self.engine.submit_document(
                 self.immagini,
                 on_page=lambda e, i, n: self.segnali.pagina.emit(e, i, n),
+                ferma=self._ferma.is_set,
                 **extra,
             )
         except Exception as e:  # noqa: BLE001 — frontiera worker/GUI: tutto diventa segnale (RNF4)

@@ -42,12 +42,34 @@ def test_stato_e_banner(qapp):
     assert w.banner.isHidden()
 
 
+def test_layout_tutto_schermo_bottoni_compatti(qapp):
+    w = MainWindow()
+    assert w.minimumWidth() >= 900
+    assert w.minimumHeight() >= 600
+    w.resize(1920, 1080)
+    w.show()
+    w.mostra_estrazioni(_estrazioni())
+    assert w.btn_apri.width() < 400
+    assert w.btn_salva.width() < 400
+    assert w.lista.width() < 600
+    w.close()
+    lay = w.centralWidget().layout()
+    assert lay.stretch(2) == 1  # corpo assorbe lo spazio verticale
+
+
+def test_banner_non_si_stira_in_verticale(qapp):
+    from PySide6.QtWidgets import QSizePolicy
+
+    w = MainWindow()
+    assert w.banner.sizePolicy().verticalPolicy() == QSizePolicy.Policy.Maximum
+
+
 def test_lista_con_badge_motore_e_testo(qapp):
     w = MainWindow()
     w.mostra_estrazioni(_estrazioni())
     assert w.lista.count() == 2
-    assert "[cuda]" in w.lista.item(0).text()
-    assert "[cpu-tesseract]" in w.lista.item(1).text()
+    assert "cuda •" in w.lista.item(0).text()
+    assert "cpu-tesseract •" in w.lista.item(1).text()
     assert "riga uno" in w.testo.toPlainText()
     assert "riga due" in w.testo.toPlainText()
 
@@ -65,6 +87,68 @@ def test_salva_su_file(qapp, tmp_path):
     dest = tmp_path / "out.txt"
     w.salva(str(dest))
     assert "riga due" in dest.read_text()
+
+
+def test_pulsante_salva_apre_dialogo_e_scrive(qapp, monkeypatch, tmp_path):
+    from PySide6.QtWidgets import QFileDialog
+
+    dest = tmp_path / "salvato.txt"
+    monkeypatch.setattr(
+        QFileDialog, "getSaveFileName", lambda *a, **k: (str(dest), "")
+    )
+    w = MainWindow()
+    w.mostra_estrazioni(_estrazioni())
+    w.btn_salva.click()
+    assert "riga due" in dest.read_text()
+
+
+def test_tempo_breve_ore_umane():
+    from locallens.app.finestra import TESTO_VUOTO, tempo_breve
+
+    assert tempo_breve(51917) == "52 s"
+    assert tempo_breve(800) == "800 ms"
+    assert "Apri un Documento" in TESTO_VUOTO
+
+
+def test_intestazione_mostra_sorgente_e_preset(qapp):
+    w = MainWindow()
+    w.conf = {"sorgente": "esterno", "url_esterno": "", "preset_id": "lighton-ocr-q8_0"}
+    w.aggiorna_intestazione()
+    assert w.titolo.text() == "LocalLens"
+    assert "esterno" in w.pill.text()
+    assert "lighton-ocr-q8_0" in w.pill.text()
+
+
+def test_stato_vuoto_e_bottoni_disabilitati(qapp):
+    w = MainWindow()
+    assert "Apri un Documento" in w.testo.toPlainText()
+    assert not w.btn_copia.isEnabled()
+    assert not w.btn_salva.isEnabled()
+    assert not w.btn_annulla.isEnabled()
+
+
+def test_mostra_estrazioni_tempi_umani_e_bottoni(qapp):
+    w = MainWindow()
+    w.mostra_estrazioni(_estrazioni())
+    assert "100 ms" in w.lista.item(0).text()
+    assert "200 ms" in w.lista.item(1).text()
+    assert w.btn_copia.isEnabled()
+    assert w.btn_salva.isEnabled()
+
+
+def test_annulla_chiama_worker(qapp):
+    chiamate = []
+
+    class WorkerFinto:
+        def annulla(self):
+            chiamate.append(True)
+
+    w = MainWindow()
+    w._worker = WorkerFinto()
+    w.btn_annulla.setEnabled(True)
+    w.btn_annulla.click()
+    assert chiamate == [True]
+    assert not w.btn_annulla.isEnabled()
 
 
 def test_avvia_elabora_in_background(qapp):

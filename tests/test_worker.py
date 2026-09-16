@@ -22,8 +22,40 @@ def test_run_ok_emette_pagine_e_finished():
     assert errori == []
 
 
+def test_annulla_interrompe_run():
+    import threading
+
+    from PySide6.QtCore import QCoreApplication
+
+    app = QCoreApplication.instance() or QCoreApplication([])
+    iniziato = threading.Event()
+    sblocca = threading.Event()
+
+    def infer(p, i):
+        iniziato.set()
+        sblocca.wait(10)
+        return ("t", "cuda")
+
+    eng = OcrEngine(infer=infer, fallback=lambda p, i: "fb")
+    w = OcrWorker(job_id="j", engine=eng, immagini=[b"a", b"b"])
+    pagine, finiti = [], []
+    w.segnali.pagina.connect(lambda e, i, n: pagine.append(e))
+    w.segnali.finito.connect(finiti.append)
+    t = threading.Thread(target=w.run)
+    t.start()
+    assert iniziato.wait(10)
+    w.annulla()
+    sblocca.set()
+    t.join(10)
+    app.processEvents()
+    assert finiti == ["j"]
+    assert [e.pagina_id for e in pagine] == [1]
+    stati = {j.stato for j in eng._jobs.values()}
+    assert stati == {"cancelled"}
+
+
 def test_run_fallito_emette_errore():
-    def boom(imgs, documento="", on_page=None):
+    def boom(imgs, documento="", on_page=None, **k):
         raise RuntimeError("gpu esplosa")
 
     eng = _engine_ok()

@@ -1,6 +1,7 @@
 """Finestra principale. Parla solo con core via OcrWorker, mai con backend/URL ( §8)."""
 
 from PySide6.QtCore import QThreadPool
+from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
@@ -10,26 +11,47 @@ from PySide6.QtWidgets import (
     QPlainTextEdit,
     QProgressBar,
     QPushButton,
+    QSizePolicy,
+    QSplitter,
+    QStyle,
     QVBoxLayout,
     QWidget,
 )
 
+from locallens.app.icone import percorso_icona
 from locallens.app.impostazioni import DialogoImpostazioni
 from locallens.app.tema import NOMI_TEMI, qss
 from locallens.app.worker import OcrWorker
 from locallens.config.settings import salva as salva_impostazioni
 from locallens.core.orchestrator import Estrazione, OcrEngine
 
+TESTO_VUOTO = (
+    "Apri un Documento (immagine o PDF) per iniziare.\n\n"
+    "Sorgenti: file • appunti • screenshot."
+)
+
+
+def tempo_breve(ms: int) -> str:
+    """Durata umana per liste e separatori: '52 s', '800 ms'."""
+    if ms < 1000:
+        return f"{ms} ms"
+    return f"{round(ms / 1000)} s"
+
+
+def _icona(nome_tema: str, standard: QStyle.StandardPixmap, widget) -> QIcon:
+    icona = QIcon.fromTheme(nome_tema)
+    if icona.isNull():
+        icona = widget.style().standardIcon(standard)
+    return icona
+
 
 class MainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
         self.setWindowTitle("LocalLens")
-        from PySide6.QtGui import QIcon
-
-        from locallens.app.icone import percorso_icona
-
         self.setWindowIcon(QIcon(percorso_icona()))
+        self.resize(1120, 700)
+        self.setMinimumSize(900, 600)
         centrale = QWidget()
         centrale.setObjectName("centrale")
         self.setCentralWidget(centrale)
@@ -37,60 +59,89 @@ class MainWindow(QMainWindow):
 
         self.banner = QLabel()
         self.banner.setObjectName("banner")
+        self.banner.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum)
         self.banner.hide()
         layout.addWidget(self.banner)
         self.tema_corrente = "chiaro"
         self.setStyleSheet(qss(self.tema_corrente))
 
+        intestazione = QHBoxLayout()
+        layout.addLayout(intestazione)
+        self.titolo = QLabel("LocalLens")
+        self.titolo.setObjectName("titolo")
+        intestazione.addWidget(self.titolo)
+        self.doc = QLabel("Nessun Documento")
+        self.doc.setObjectName("doc")
+        intestazione.addWidget(self.doc, stretch=1)
+        self.pill = QLabel()
+        self.pill.setObjectName("pill")
+        intestazione.addWidget(self.pill)
+
         corpo = QHBoxLayout()
-        layout.addLayout(corpo)
+        layout.addLayout(corpo, stretch=1)
 
+        divisore = QSplitter()
+        corpo.addWidget(divisore)
         self.lista = QListWidget()
-        self.lista.setMaximumWidth(280)
-        corpo.addWidget(self.lista)
+        self.lista.setMinimumWidth(220)
+        divisore.addWidget(self.lista)
 
-        destra = QVBoxLayout()
-        corpo.addLayout(destra)
+        destra = QWidget()
+        layout_destra = QVBoxLayout(destra)
+        layout_destra.setContentsMargins(0, 0, 0, 0)
+        divisore.addWidget(destra)
+        divisore.setStretchFactor(0, 0)
+        divisore.setStretchFactor(1, 1)
         self.testo = QPlainTextEdit()
         self.testo.setReadOnly(True)
-        destra.addWidget(self.testo)
+        self.testo.setPlainText(TESTO_VUOTO)
+        layout_destra.addWidget(self.testo)
 
-        bottoni = QHBoxLayout()
-        destra.addLayout(bottoni)
-        self.btn_copia = QPushButton("Copia")
-        self.btn_copia.clicked.connect(lambda: self.copia())
-        self.btn_salva = QPushButton("Salva .txt")
-        self.btn_salva.clicked.connect(lambda: self.salva(""))
-        bottoni.addWidget(self.btn_copia)
-        bottoni.addWidget(self.btn_salva)
-
-        ingressi = QHBoxLayout()
-        destra.addLayout(ingressi)
+        Azioni = QHBoxLayout()
+        layout_destra.addLayout(Azioni)
         self.btn_apri = QPushButton("Apri file/PDF")
+        self.btn_apri.setIcon(_icona("document-open", QStyle.StandardPixmap.SP_DialogOpenButton, self))
         self.btn_apri.clicked.connect(lambda: self._apri_file())
         self.btn_incolla = QPushButton("Incolla")
+        self.btn_incolla.setIcon(_icona("edit-paste", QStyle.StandardPixmap.SP_FileDialogDetailedView, self))
         self.btn_incolla.clicked.connect(lambda: self._da_appunti())
         self.btn_schermo = QPushButton("Screenshot")
+        self.btn_schermo.setIcon(_icona("camera-photo", QStyle.StandardPixmap.SP_ComputerIcon, self))
         self.btn_schermo.clicked.connect(lambda: self._da_screenshot())
+        self.btn_annulla = QPushButton("Annulla")
+        self.btn_annulla.setIcon(_icona("process-stop", QStyle.StandardPixmap.SP_DialogCancelButton, self))
+        self.btn_annulla.clicked.connect(lambda: self._annulla())
+        self.btn_annulla.setEnabled(False)
+        for b in (self.btn_apri, self.btn_incolla, self.btn_schermo, self.btn_annulla):
+            Azioni.addWidget(b)
+        Azioni.addStretch(1)
+
+        secondarie = QHBoxLayout()
+        layout_destra.addLayout(secondarie)
+        self.btn_copia = QPushButton("Copia")
+        self.btn_copia.setIcon(_icona("edit-copy", QStyle.StandardPixmap.SP_FileDialogContentsView, self))
+        self.btn_copia.clicked.connect(lambda: self.copia())
+        self.btn_salva = QPushButton("Salva .txt")
+        self.btn_salva.setIcon(_icona("document-save", QStyle.StandardPixmap.SP_DialogSaveButton, self))
+        self.btn_salva.clicked.connect(lambda: self._salva_file())
         self.btn_setup = QPushButton("Impostazioni")
+        self.btn_setup.setIcon(_icona("preferences-system", QStyle.StandardPixmap.SP_FileDialogListView, self))
         self.btn_setup.clicked.connect(lambda: self._impostazioni())
         self.btn_tema = QPushButton("Tema: chiaro")
+        self.btn_tema.setIcon(_icona("weather-clear-night", QStyle.StandardPixmap.SP_TitleBarShadeButton, self))
         self.btn_tema.clicked.connect(lambda: self.cambia_tema())
         for b in (
-            self.btn_apri,
-            self.btn_incolla,
-            self.btn_schermo,
+            self.btn_copia,
+            self.btn_salva,
             self.btn_setup,
             self.btn_tema,
         ):
             b.setProperty("secondario", "true")
-        ingressi.addWidget(self.btn_apri)
-        ingressi.addWidget(self.btn_incolla)
-        ingressi.addWidget(self.btn_schermo)
-        ingressi.addWidget(self.btn_setup)
-        ingressi.addWidget(self.btn_tema)
+            secondarie.addWidget(b)
+        secondarie.addStretch(1)
 
         self.progress = QProgressBar()
+        self.progress.setFormat("Pagina %v di %m")
         self.progress.hide()
         layout.addWidget(self.progress)
         self.statusBar().showMessage("pronto")
@@ -98,6 +149,8 @@ class MainWindow(QMainWindow):
         self._worker: OcrWorker | None = None
         self._engine: OcrEngine | None = None
         self.conf: dict = {"sorgente": "bundlato", "url_esterno": "", "preset_id": ""}
+        self._aggiorna_bottoni()
+        self.aggiorna_intestazione()
 
     def set_tema(self, nome: str) -> None:
         if nome not in NOMI_TEMI:
@@ -109,9 +162,23 @@ class MainWindow(QMainWindow):
     def cambia_tema(self) -> None:
         self.set_tema("scuro" if self.tema_corrente == "chiaro" else "chiaro")
         self.conf["tema"] = self.tema_corrente
+        self.aggiorna_intestazione()
+        self._ricolora_lista()
+
+    def _ricolora_lista(self) -> None:
+        from PySide6.QtGui import QColor
+
+        from locallens.app.tema import TEMI
+
+        t = TEMI[self.tema_corrente]
+        for i in range(self.lista.count()):
+            item = self.lista.item(i)
+            caduta = "cpu-tesseract" in item.text()
+            item.setForeground(QColor(t["fallback" if caduta else "success"]))
 
     def set_engine(self, engine: OcrEngine) -> None:
         self._engine = engine
+        self.aggiorna_intestazione()
 
     def set_ricostruttore(self, fn) -> None:
         """fn(conf) -> (engine, stato, banner). Iniettato da __main__."""
@@ -202,10 +269,19 @@ class MainWindow(QMainWindow):
         self, immagini: list[bytes], engine: OcrEngine, documento: str = ""
     ) -> None:
         """Elabora in background: la GUI resta responsiva (RF8)."""
+        import os
+
         self.nascondi_banner()
         self._correnti = []
+        nome = os.path.basename(documento) if documento else f"{len(immagini)} immagini"
+        self.doc.setText(nome)
+        self.doc.setToolTip(documento or nome)
+        self.testo.setPlainText("Elaborazione in corso…")
+        self.btn_copia.setEnabled(False)
+        self.btn_salva.setEnabled(False)
         self.progress.setValue(0)
         self.progress.show()
+        self.btn_annulla.setEnabled(True)
         worker = OcrWorker(
             job_id="doc",
             engine=engine,
@@ -239,13 +315,20 @@ class MainWindow(QMainWindow):
 
     def _on_finito(self, job_id: str) -> None:
         self.progress.hide()
+        self.btn_annulla.setEnabled(False)
         self.mostra_estrazioni(self._correnti)
         self._worker = None
+        n = len(self._correnti)
+        if n:
+            base = self.doc.toolTip() or self.doc.text()
+            self.doc.setText(f"{base} — {n} pagine")
 
     def _on_errore(self, job_id: str, messaggio: str) -> None:
         self.progress.hide()
+        self.btn_annulla.setEnabled(False)
         self.mostra_banner(f"Errore: {messaggio}")
         self._worker = None
+        self._aggiorna_bottoni()
 
     def set_stato(self, messaggio: str) -> None:
         self.statusBar().showMessage(messaggio)
@@ -258,14 +341,50 @@ class MainWindow(QMainWindow):
         self.banner.hide()
 
     def mostra_estrazioni(self, estrazioni: list[Estrazione]) -> None:
+        from PySide6.QtGui import QColor
+        from PySide6.QtWidgets import QListWidgetItem
+
+        from locallens.app.tema import TEMI
+
+        t = TEMI[self.tema_corrente]
         self.lista.clear()
         testi = []
         for e in estrazioni:
-            self.lista.addItem(f"Pagina {e.pagina_id} [{e.motore_usato}] — {e.ms} ms")
-            testi.append(e.testo)
-            if e.motore_usato == "cpu-tesseract":
+            caduta = e.motore_usato == "cpu-tesseract"
+            item = QListWidgetItem(f"Pagina {e.pagina_id} • {e.motore_usato} • {tempo_breve(e.ms)}")
+            item.setForeground(QColor(t["fallback" if caduta else "success"]))
+            self.lista.addItem(item)
+            testi.append(f"── Pagina {e.pagina_id} • {e.motore_usato} • {tempo_breve(e.ms)} ──\n{e.testo}")
+            if caduta:
                 self.mostra_banner(f"Pagina {e.pagina_id} elaborata via CPU (fallback)")
-        self.testo.setPlainText("\n\n".join(testi))
+        self.testo.setPlainText("\n\n".join(testi) if testi else TESTO_VUOTO)
+        self._aggiorna_bottoni()
+
+    def aggiorna_intestazione(self) -> None:
+        """Pill motore in linguaggio umano: '● esterno • lighton-ocr-q8_0'."""
+        sorgente = self.conf.get("sorgente", "bundlato")
+        preset = self.conf.get("preset_id", "") or "—"
+        colori = {
+            "esterno": "success",
+            "bundlato": "success",
+            "nessuno": "fallback",
+        }
+        from locallens.app.tema import TEMI
+
+        t = TEMI[self.tema_corrente]
+        colore = t[colori.get(sorgente, "muted")]
+        self.pill.setText(f"<span style='color:{colore}'>●</span> {sorgente} • {preset}")
+
+    def _aggiorna_bottoni(self) -> None:
+        ha_testo = bool(self.testo.toPlainText().strip()) and self.testo.toPlainText() != TESTO_VUOTO
+        self.btn_copia.setEnabled(ha_testo)
+        self.btn_salva.setEnabled(ha_testo)
+
+    def _annulla(self) -> None:
+        if self._worker is not None:
+            self._worker.annulla()
+            self.btn_annulla.setEnabled(False)
+            self.mostra_banner("Annullamento richiesto: finisco la Pagina corrente.")
 
     def copia(self) -> None:
         from PySide6.QtWidgets import QApplication
@@ -280,3 +399,12 @@ class MainWindow(QMainWindow):
             return
         with open(percorso, "w", encoding="utf-8") as f:
             f.write(self.testo.toPlainText())
+
+    def _salva_file(self) -> None:
+        from PySide6.QtWidgets import QFileDialog
+
+        percorso, _ = QFileDialog.getSaveFileName(
+            self, "Salva estrazione", "", "Testo (*.txt)"
+        )
+        if percorso:
+            self.salva(percorso)

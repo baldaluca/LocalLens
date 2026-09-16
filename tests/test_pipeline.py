@@ -97,6 +97,23 @@ def test_timeout_non_ritentato():
     assert "timed out" in (out[0].nota or "")
 
 
+def test_ferma_interrompe_batch():
+    chiamate = []
+
+    def infer(pagina_id, _img):
+        chiamate.append(pagina_id)
+        return ("t", "cuda")
+
+    out = elabora_pagine(
+        [b"a", b"b", b"c"],
+        infer=infer,
+        fallback=lambda p, i: "fb",
+        sorgente="bundlato",
+        ferma=lambda: len(chiamate) >= 1,
+    )
+    assert [e.pagina_id for e in out] == [1]
+
+
 def test_batch_non_si_interrompe_su_fallback():
     def infer(pagina_id, _img):
         if pagina_id == 1:

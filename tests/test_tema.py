@@ -25,6 +25,16 @@ def test_qss_contiene_token():
     assert "QPushButton" in qss and "QListWidget" in qss
 
 
+def test_nuovi_token_e_regole():
+    assert "fallback" in tema.TEMI["chiaro"]
+    assert "link" in tema.TEMI["scuro"]
+    qss = tema.qss("chiaro")
+    assert "#1D4ED8" in qss  # primary_pressa interpolato
+    assert "QLabel#titolo" in qss
+    assert "QLabel#pill" in qss
+    assert "QSplitter" in qss
+
+
 def test_tema_ignoto_sollevato():
     try:
         tema.qss("neon")

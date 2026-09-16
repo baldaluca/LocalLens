@@ -34,11 +34,14 @@ def elabora_pagine(
     fallback: Callable[[int, bytes], str],
     sorgente: str = "bundlato",
     on_page: Callable[[EstrazionePagina, int, int], None] | None = None,
+    ferma: Callable[[], bool] | None = None,
 ) -> list[EstrazionePagina]:
     """Per ogni Pagina: infer (max 2 tentativi) → fallback Tesseract. Mai interruzione batch."""
     out: list[EstrazionePagina] = []
     totale = len(immagini)
     for i, img in enumerate(immagini, start=1):
+        if ferma is not None and ferma():
+            break
         t0 = time.monotonic()
         if sorgente == "nessuno":
             testo = fallback(i, img)

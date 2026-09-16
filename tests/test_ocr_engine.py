@@ -65,6 +65,14 @@ def test_immagine_corrotta_va_in_fallback():
     assert job.estrazioni[0].testo == "fb-caduta"
 
 
+def test_submit_fermato_marca_cancelled():
+    eng = _engine()
+    jid = eng.submit_document([b"a", b"b"], ferma=lambda: True)
+    job = eng.get_result(jid)
+    assert job.stato == "cancelled"
+    assert job.estrazioni == []
+
+
 def test_cancel_su_job_fatto_noop_e_sconosciuto_errore():
     eng = _engine()
     jid = eng.submit_document([b"a"])

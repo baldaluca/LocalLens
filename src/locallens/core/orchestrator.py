@@ -50,6 +50,7 @@ class OcrEngine:
         documento: str = "",
         on_page=None,
         diario=None,
+        ferma: Callable[[], bool] | None = None,
     ) -> str:
         job_id = uuid.uuid4().hex[:8]
         job = OcrJob(job_id=job_id, documento=documento, stato="processing")
@@ -76,6 +77,7 @@ class OcrEngine:
             fallback=self._fallback,
             sorgente=self._sorgente,
             on_page=callback,
+            ferma=ferma,
         )
         job.estrazioni = [
             Estrazione(
@@ -86,9 +88,9 @@ class OcrEngine:
             )
             for p in pagine
         ]
-        job.stato = "done"
+        job.stato = "cancelled" if (ferma is not None and ferma()) else "done"
         if diario is not None:
-            diario.chiudi(stato="done")
+            diario.chiudi(stato=job.stato)
         return job_id
 
     def cancel(self, job_id: str) -> None:
