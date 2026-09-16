@@ -14,9 +14,9 @@ Estrazione testo da immagini e PDF con inferenza GPU (NVIDIA/AMD/Intel via
 ## Avvio rapido (Linux)
 
 ```bash
-uv sync
-PYTHONPATH=src QT_QPA_PLATFORM=offscreen uv run --no-sync python -m locallens  # smoke headless
-uv run --no-sync python -m locallens                                           # GUI
+uv sync                                   # installa anche locallens in editable
+QT_QPA_PLATFORM=offscreen timeout 12 uv run python -m locallens   # smoke headless
+uv run python -m locallens                # GUI (oppure: uv run locallens)
 ```
 
 ## Test
