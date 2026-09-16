@@ -98,6 +98,7 @@ class MainWindow(QMainWindow):
         layout_destra.addWidget(self.testo)
 
         Azioni = QHBoxLayout()
+        Azioni.setSpacing(8)
         layout_destra.addLayout(Azioni)
         self.btn_apri = QPushButton("Apri file/PDF")
         self.btn_apri.setIcon(_icona("document-open", QStyle.StandardPixmap.SP_DialogOpenButton, self))
@@ -113,10 +114,12 @@ class MainWindow(QMainWindow):
         self.btn_annulla.clicked.connect(lambda: self._annulla())
         self.btn_annulla.setEnabled(False)
         for b in (self.btn_apri, self.btn_incolla, self.btn_schermo, self.btn_annulla):
-            Azioni.addWidget(b)
-        Azioni.addStretch(1)
+            b.setMinimumHeight(40)
+            b.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+            Azioni.addWidget(b, stretch=1)
 
         secondarie = QHBoxLayout()
+        secondarie.setSpacing(8)
         layout_destra.addLayout(secondarie)
         self.btn_copia = QPushButton("Copia")
         self.btn_copia.setIcon(_icona("edit-copy", QStyle.StandardPixmap.SP_FileDialogContentsView, self))
@@ -137,8 +140,9 @@ class MainWindow(QMainWindow):
             self.btn_tema,
         ):
             b.setProperty("secondario", "true")
-            secondarie.addWidget(b)
-        secondarie.addStretch(1)
+            b.setMinimumHeight(40)
+            b.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+            secondarie.addWidget(b, stretch=1)
 
         self.progress = QProgressBar()
         self.progress.setFormat("Pagina %v di %m")

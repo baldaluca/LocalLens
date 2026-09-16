@@ -49,8 +49,13 @@ def test_layout_tutto_schermo_bottoni_compatti(qapp):
     w.resize(1920, 1080)
     w.show()
     w.mostra_estrazioni(_estrazioni())
-    assert w.btn_apri.width() < 400
-    assert w.btn_salva.width() < 400
+    # Bottoni inferiori: riempiono la larghezza, altezza touch-friendly, niente spazio vuoto a destra
+    assert 200 < w.btn_apri.width() < 600
+    assert 200 < w.btn_salva.width() < 600
+    assert w.btn_apri.minimumHeight() >= 40
+    assert w.btn_salva.minimumHeight() >= 40
+    assert abs(w.btn_apri.width() - w.btn_incolla.width()) < 60
+    assert abs(w.btn_copia.width() - w.btn_salva.width()) < 60
     assert w.lista.width() < 600
     w.close()
     lay = w.centralWidget().layout()

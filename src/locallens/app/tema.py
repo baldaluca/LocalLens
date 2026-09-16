@@ -63,7 +63,8 @@ QPlainTextEdit {{ background: {t['surface']}; color: {t['foreground']};
   border: 1px solid {t['border']}; border-radius: 8px;
   selection-background-color: {t['primary']}; }}
 QPushButton {{ background: {t['primary']}; color: {t['on_primary']};
-  border: none; border-radius: 8px; padding: 8px 16px; font-weight: 600; }}
+  border: none; border-radius: 8px; padding: 8px 16px; font-weight: 600;
+  min-height: 24px; }}
 QPushButton:hover {{ background: {t['accent']}; }}
 QPushButton:pressed {{ background: {t['primary_pressa']}; }}
 QPushButton:disabled {{ background: {t['border']}; color: {t['muted']}; }}
