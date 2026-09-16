@@ -5,6 +5,7 @@ requires-python = ">=3.11"
 dependencies = [
     "pillow>=12.3.0",
     "pypdfium2>=5.13.0",
+    "pytesseract>=0.3.13",
 ]
 
 [project.optional-dependencies]

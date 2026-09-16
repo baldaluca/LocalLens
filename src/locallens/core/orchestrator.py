@@ -1,8 +1,11 @@
 """Orchestrazione Documento → Pagine → Estrazioni. Prompt/template dal preset, mai hardcoded."""
+import base64
 import uuid
 from collections.abc import Callable
 from dataclasses import dataclass, field
 
+from locallens.config.presets import PresetModello
+from locallens.core.client import build_chat_payload, invia_chat
 from locallens.core.pipeline import elabora_pagine
 
 
@@ -64,3 +67,26 @@ class OcrEngine:
             return self._jobs[job_id]
         except KeyError:
             raise KeyError(job_id) from None
+
+
+def crea_engine(
+    base_url: str,
+    preset: PresetModello,
+    motore: str = "cuda",
+    sorgente: str = "bundlato",
+    post=None,
+    fallback=None,
+) -> OcrEngine:
+    """Collega client HTTP + fallback Tesseract dietro la pipeline. Default = tesseract reale."""
+    from locallens.fallback.tesseract import estrai as tesseract_estrai
+
+    prompt = preset.prompt.get("system", "Transcribe.")
+
+    def infer(pagina_id: int, png: bytes) -> tuple[str, str]:
+        payload = build_chat_payload(base64.b64encode(png).decode(), prompt, preset.id)
+        return invia_chat(base_url, payload, post=post), motore
+
+    def fb_default(_pagina_id: int, png: bytes) -> str:
+        return tesseract_estrai(png)
+
+    return OcrEngine(infer=infer, fallback=fallback or fb_default, sorgente=sorgente)
