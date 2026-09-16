@@ -41,12 +41,21 @@ class OcrEngine:
         self._sorgente = sorgente
         self._jobs: dict[str, OcrJob] = {}
 
-    def submit_document(self, immagini: list[bytes], documento: str = "") -> str:
+    def submit_document(
+        self,
+        immagini: list[bytes],
+        documento: str = "",
+        on_page=None,
+    ) -> str:
         job_id = uuid.uuid4().hex[:8]
         job = OcrJob(job_id=job_id, documento=documento, stato="processing")
         self._jobs[job_id] = job
         pagine = elabora_pagine(
-            immagini, infer=self._infer, fallback=self._fallback, sorgente=self._sorgente
+            immagini,
+            infer=self._infer,
+            fallback=self._fallback,
+            sorgente=self._sorgente,
+            on_page=on_page,
         )
         job.estrazioni = [
             Estrazione(pagina_id=p.pagina_id, testo=p.testo, motore_usato=p.motore_usato, ms=p.ms)

@@ -22,36 +22,39 @@ def elabora_pagine(
     infer: Callable[[int, bytes], tuple[str, str]],
     fallback: Callable[[int, bytes], str],
     sorgente: str = "bundlato",
+    on_page: Callable[[EstrazionePagina, int, int], None] | None = None,
 ) -> list[EstrazionePagina]:
     """Per ogni Pagina: infer (max 2 tentativi) → fallback Tesseract. Mai interruzione batch."""
     out: list[EstrazionePagina] = []
+    totale = len(immagini)
     for i, img in enumerate(immagini, start=1):
         t0 = time.monotonic()
         if sorgente == "nessuno":
             testo = fallback(i, img)
-            out.append(
-                EstrazionePagina(i, testo, "cpu-tesseract", _ms(t0), "sorgente=nessuno")
-            )
+            estrazione = EstrazionePagina(i, testo, "cpu-tesseract", _ms(t0), "sorgente=nessuno")
+            out.append(estrazione)
+            if on_page:
+                on_page(estrazione, i, totale)
             continue
         ultimo_errore: str | None = None
-        riuscito = False
+        riuscito: EstrazionePagina | None = None
         for _ in range(2):
             try:
                 testo, motore = infer(i, img)
                 if not testo.strip():
                     ultimo_errore = "output vuoto/anomalo"
                     continue
-                out.append(EstrazionePagina(i, testo, motore, _ms(t0)))
-                riuscito = True
+                riuscito = EstrazionePagina(i, testo, motore, _ms(t0))
                 break
             except InferenzaError as e:
                 ultimo_errore = str(e)
                 continue
-        if not riuscito:
+        if riuscito is None:
             testo = fallback(i, img)
-            out.append(
-                EstrazionePagina(i, testo, "cpu-tesseract", _ms(t0), ultimo_errore)
-            )
+            riuscito = EstrazionePagina(i, testo, "cpu-tesseract", _ms(t0), ultimo_errore)
+        out.append(riuscito)
+        if on_page:
+            on_page(riuscito, i, totale)
     return out
 
 
