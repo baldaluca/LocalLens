@@ -20,8 +20,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 from locallens.backend.distro import TAG, asset_name, dest_dir, download_url, matrice_v1
 
 
-def scarica(os: str, backend: str, bins_root: str = "bins") -> Path:
-    url = download_url(os, backend)
+def scarica(os: str, backend: str, bins_root: str = "bins", url: str | None = None) -> Path:
+    url = url or download_url(os, backend)
     dest = Path(dest_dir(os, backend, bins_root))
     dest.mkdir(parents=True, exist_ok=True)
     with tempfile.NamedTemporaryFile(suffix=Path(url).suffix, delete=False) as tmp:
@@ -39,6 +39,9 @@ def scarica(os: str, backend: str, bins_root: str = "bins") -> Path:
             for elemento in figlio.iterdir():
                 shutil.move(str(elemento), dest / elemento.name)
             figlio.rmdir()
+    binario = dest / ("llama-server.exe" if os == "win32" else "llama-server")
+    if not binario.is_file():
+        raise FileNotFoundError(f"archivio senza binario atteso: {url} -> {dest}")
     print(f"{os}/{backend}: {asset_name(os, backend)} -> {dest}")
     return dest
 

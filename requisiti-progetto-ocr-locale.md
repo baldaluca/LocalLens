@@ -75,7 +75,7 @@ Nota: con 6 GB di VRAM e un'architettura molto più recente della GTX 960M, ques
 | ID | Requisito |
 |---|---|
 | RF1 | L'utente deve poter fornire un'immagine o un PDF tramite: file da disco, drag&drop, incolla da clipboard, screenshot integrato |
-| RF2 | Il sistema deve poter applicare un preprocessing opzionale (deskew, crop, aumento contrasto) prima dell'inferenza |
+| RF2 | Il sistema deve poter applicare un preprocessing opzionale (deskew, crop, aumento contrasto) prima dell'inferenza — v1: resize anti-OOM + contrasto (deskew/crop in v1.1, vedi ADR-0006) |
 | RF3 | Il sistema deve rilevare automaticamente il backend GPU disponibile sulla piattaforma corrente (CUDA su NVIDIA, HIP/ROCm su AMD, Metal su Apple Silicon, Vulkan come fallback cross-vendor) e usarlo per l'inferenza tramite `llama.cpp`/`mtmd` |
 | RF4 | Se nessun backend GPU è disponibile/supportato o l'inferenza GPU fallisce, il sistema deve ricadere su un motore OCR CPU-only (Tesseract) senza bloccare l'utente |
 | RF5 | Il testo estratto deve essere copiabile negli appunti e salvabile su file (.txt/.md minimo) |
@@ -189,15 +189,17 @@ Un modello è idoneo per qualunque fascia GPU solo se rispetta **tutti** i segue
 
 ## 11. Criteri di accettazione (v1)
 
-- [ ] L'app rileva automaticamente il backend GPU disponibile (o la sua assenza) e seleziona un preset di modello coerente con la VRAM rilevata
-- [ ] L'app estrae testo leggibile da almeno un'immagine di test tramite `ggml-org/GLM-OCR-GGUF:Q8_0` via `llama-server`, su almeno una combinazione piattaforma/backend verificata (macchina di riferimento: Linux + CUDA)
-- [ ] La stessa estrazione funziona anche su Windows (macchina di riferimento: Acer Nitro ANV15-51, RTX 4050 Laptop GPU) con backend CUDA
-- [ ] Su GPU assente o non supportata, l'estrazione avviene automaticamente via Tesseract senza intervento manuale
-- [ ] Nessuna chiamata di rete esterna viene effettuata durante l'elaborazione
-- [ ] Il sistema non va in crash su OOM o backend non disponibile: mostra un errore gestito e propone il fallback CPU
-- [ ] Il testo estratto è copiabile e salvabile su file
-- [ ] L'utente può scegliere tra backend bundlato, URL di server `llama.cpp` esterno, o nessun modello locale (solo Tesseract), e l'app avvisa esplicitamente se l'URL esterno non punta a `localhost`/rete privata
-- [ ] Il PDF in input viene gestito (rendering pagina-per-pagina) secondo l'approccio scelto (vedi punti aperti)
+Stato verificato il 2026-09-16 (dettagli in `docs/architecture.md` §3):
+
+- [x] L'app rileva automaticamente il backend GPU disponibile (o la sua assenza) e seleziona un preset di modello coerente con la VRAM rilevata
+- [x] L'app estrae testo leggibile da almeno un'immagine di test tramite `ggml-org/GLM-OCR-GGUF:Q8_0` via `llama-server`, su almeno una combinazione piattaforma/backend verificata (macchina di riferimento: Linux + CUDA)
+- [ ] La stessa estrazione funziona anche su Windows (macchina di riferimento: Acer Nitro ANV15-51, RTX 4050 Laptop GPU) con backend CUDA — best effort, non verificato in questa sessione
+- [x] Su GPU assente o non supportata, l'estrazione avviene automaticamente via Tesseract senza intervento manuale — pipeline verificata via test; live Tesseract richiede il binario di sistema (`TESSERACT_LIVE=1`)
+- [x] Nessuna chiamata di rete esterna viene effettuata durante l'elaborazione
+- [x] Il sistema non va in crash su OOM o backend non disponibile: mostra un errore gestito e propone il fallback CPU
+- [x] Il testo estratto è copiabile e salvabile su file
+- [x] L'utente può scegliere tra backend bundlato, URL di server `llama.cpp` esterno, o nessun modello locale (solo Tesseract), e l'app avvisa esplicitamente se l'URL esterno non punta a `localhost`/rete privata
+- [x] Il PDF in input viene gestito (rendering pagina-per-pagina) secondo l'approccio scelto (vedi punti aperti)
 
 ---
 

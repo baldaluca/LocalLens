@@ -18,7 +18,7 @@ def _finte():
 def test_esterno_punta_a_url():
     preset = load_preset("presets/glm-ocr-q8_0.toml")
     conf = {"sorgente": "esterno", "url_esterno": "http://127.0.0.1:8011"}
-    crea = lambda url, p, motore: ("engine", url, motore)
+    crea = lambda url, p, motore, **k: ("engine", url, motore)
     eng, _stato, banner = costruisci(conf, _info(), preset, crea=crea)
     assert eng == ("engine", "http://127.0.0.1:8011", "esterno")
     assert banner == ""
@@ -27,7 +27,7 @@ def test_esterno_punta_a_url():
 def test_esterno_pubblico_avvisa():
     preset = load_preset("presets/glm-ocr-q8_0.toml")
     conf = {"sorgente": "esterno", "url_esterno": "http://203.0.113.10:8011"}
-    _eng, _stato, banner = costruisci(conf, _info(), preset, crea=lambda u, p, motore: u)
+    _eng, _stato, banner = costruisci(conf, _info(), preset, crea=lambda u, p, motore, **k: u)
     assert banner != ""
 
 
@@ -58,7 +58,7 @@ def test_bundlato_avvia_gestore():
         _info(),
         preset,
         gestore=Gestore(),
-        crea=lambda url, p, motore: (url, motore),
+        crea=lambda url, p, motore, **k: (url, motore),
         pesi=("/m/g.gguf", "/m/p.gguf"),
     )
     assert avvii["backend"] == "cuda"

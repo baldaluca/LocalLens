@@ -17,7 +17,14 @@ def costruisci(conf, info, preset, gestore=None, crea=None, solo_cpu=None, pesi=
             if is_url_privata(url)
             else "Attenzione privacy: l'URL non punta alla rete locale."
         )
-        return crea(url, preset, motore="esterno"), f"esterno • {url}", banner
+        engine = crea(
+            url,
+            preset,
+            motore="esterno",
+            max_side=conf.get("max_side_px", 2048),
+            contrasto=conf.get("contrasto", False),
+        )
+        return engine, f"esterno • {url}", banner
 
     if sorgente == "nessuno":
         if solo_cpu is None:
@@ -55,7 +62,13 @@ def costruisci(conf, info, preset, gestore=None, crea=None, solo_cpu=None, pesi=
             solo_cpu = _reale
         return solo_cpu(str(e)), "bundlato (solo CPU)", f"Solo CPU: {e}"
     return (
-        crea(handle.base_url, preset, motore=info.candidati[0]),
+        crea(
+            handle.base_url,
+            preset,
+            motore=info.candidati[0],
+            max_side=conf.get("max_side_px", 2048),
+            contrasto=conf.get("contrasto", False),
+        ),
         f"{info.candidati[0]} • {handle.base_url}",
         "",
     )

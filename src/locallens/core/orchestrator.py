@@ -85,14 +85,24 @@ def crea_engine(
     sorgente: str = "bundlato",
     post=None,
     fallback=None,
+    max_side: int = 2048,
+    contrasto: bool = False,
 ) -> OcrEngine:
     """Collega client HTTP + fallback Tesseract dietro la pipeline. Default = tesseract reale."""
     from locallens.fallback.tesseract import estrai as tesseract_estrai
+    from locallens.preprocessing.immagini import prepara
 
     prompt = preset.prompt.get("system", "Transcribe.")
+    limite = min(max_side, preset.max_side_px)
 
     def infer(pagina_id: int, png: bytes) -> tuple[str, str]:
-        payload = build_chat_payload(base64.b64encode(png).decode(), prompt, preset.id)
+        try:
+            pronta = prepara(png, max_side=limite, contrasto=contrasto)
+        except Exception as e:
+            from locallens.core.errori import InferenzaError
+
+            raise InferenzaError(f"preprocessing fallito: {e}") from e
+        payload = build_chat_payload(base64.b64encode(pronta).decode(), prompt, preset.id)
         return invia_chat(base_url, payload, post=post), motore
 
     def fb_default(_pagina_id: int, png: bytes) -> str:

@@ -7,6 +7,5 @@ backend_override = ""          # "" = auto; oppure cuda | hip | vulkan | cpu
 porta = 8011                   # default, con scan 8011-8020 se occupata
 dpi_pdf = 300
 max_side_px = 2048
-deskew = false
-crop = false
 contrasto = false
+# deskew/crop: rimandati a v1.1 (vedi docs/adr/0006)

@@ -13,8 +13,6 @@ DEFAULTS = {
     "porta": 8011,
     "dpi_pdf": 300,
     "max_side_px": 2048,
-    "deskew": False,
-    "crop": False,
     "contrasto": False,
 }
 
