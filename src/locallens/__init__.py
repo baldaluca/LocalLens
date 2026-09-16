@@ -1,0 +1,1 @@
+"""LocalLens — OCR desktop locale."""

@@ -1,0 +1,17 @@
+# Preset fascia VRAM bassa — default v1, validato su GTX 960M 4GB
+id = "glm-ocr-q8_0"
+display_name = "GLM-OCR Q8_0 (default, VRAM bassa)"
+hf_repo = "ggml-org/GLM-OCR-GGUF"
+gguf_file = "GLM-OCR-Q8_0.gguf"
+mmproj_file = "mmproj-GLM-OCR-Q8_0.gguf"
+chat_template = "glm-ocr"
+vram_min_mb = 2048
+ctx_size = 4096
+max_side_px = 2048
+
+[server_args]
+n_gpu_layers = 99
+flash_attn = true
+
+[prompt]
+system = "Transcribe the document text exactly. No commentary."

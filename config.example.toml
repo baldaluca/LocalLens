@@ -1,0 +1,12 @@
+# Esempio config utente — copiare in ~/.config/locallens/config.toml (Linux)
+# o %APPDATA%/LocalLens/config.toml (Win)
+sorgente = "bundlato"          # bundlato | esterno | nessuno
+url_esterno = "http://127.0.0.1:8011"
+preset_id = "glm-ocr-q8_0"     # override manuale, altrimenti auto da VRAM
+backend_override = ""          # "" = auto; oppure cuda | hip | vulkan | cpu
+porta = 8011                   # default, con scan 8011-8020 se occupata
+dpi_pdf = 300
+max_side_px = 2048
+deskew = false
+crop = false
+contrasto = false

@@ -1,0 +1,11 @@
+# Placeholder fascia media/alta — modello da definire (§12 requisiti). Disabilitato in v1.
+id = "placeholder-alta"
+display_name = "Fascia alta (da definire)"
+enabled = false
+hf_repo = ""
+gguf_file = ""
+mmproj_file = ""
+chat_template = ""
+vram_min_mb = 6144
+ctx_size = 8192
+max_side_px = 2048
