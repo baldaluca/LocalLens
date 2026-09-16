@@ -75,6 +75,28 @@ def test_sorgente_nessuno_salata_backend():
     assert all(e.motore_usato == "cpu-tesseract" for e in out)
 
 
+def test_timeout_non_ritentato():
+    """Timeout >120s su 960M: ritentare raddoppia il danno e intasa il server."""
+    from urllib.error import URLError
+
+    chiamate = []
+
+    def infer(pagina_id, _img):
+        chiamate.append(pagina_id)
+        raise InferenzaError("chiamata chat fallita: timed out") from URLError(
+            TimeoutError()
+        )
+
+    def fallback(pagina_id, _img):
+        return "fb-veloce"
+
+    out = elabora_pagine([b"img1"], infer=infer, fallback=fallback, sorgente="bundlato")
+    assert len(chiamate) == 1
+    assert out[0].testo == "fb-veloce"
+    assert out[0].motore_usato == "cpu-tesseract"
+    assert "timed out" in (out[0].nota or "")
+
+
 def test_batch_non_si_interrompe_su_fallback():
     def infer(pagina_id, _img):
         if pagina_id == 1:

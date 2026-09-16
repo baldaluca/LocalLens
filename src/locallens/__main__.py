@@ -18,11 +18,11 @@ def _preset_da_conf(conf):
     from locallens.config.percorsi import risorsa
     from locallens.config.presets import load_preset
 
-    pid = conf.get("preset_id", "") or "glm-ocr-q8_0"
+    pid = conf.get("preset_id", "") or "lighton-ocr-q8_0"
     try:
         return load_preset(str(risorsa("presets", f"{pid}.toml")))
     except (ValueError, OSError):
-        return load_preset(str(risorsa("presets", "glm-ocr-q8_0.toml")))
+        return load_preset(str(risorsa("presets", "lighton-ocr-q8_0.toml")))
 
 
 def costruisci_da_conf(conf):

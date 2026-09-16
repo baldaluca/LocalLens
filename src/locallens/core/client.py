@@ -6,9 +6,12 @@ from collections.abc import Callable
 from locallens.core.errori import InferenzaError
 
 
-def build_chat_payload(immagine_b64: str, prompt_system: str, modello: str) -> dict:
+def build_chat_payload(
+    immagine_b64: str, prompt_system: str, modello: str, max_tokens: int = 2048
+) -> dict:
     return {
         "model": modello,
+        "max_tokens": max_tokens,
         "messages": [
             {"role": "system", "content": prompt_system},
             {
@@ -41,7 +44,7 @@ def invia_chat(
     base_url: str,
     payload: dict,
     post: Callable[[str, dict], dict] | None = None,
-    timeout: int = 120,
+    timeout: int = 600,
 ) -> str:
     url = base_url.rstrip("/") + "/v1/chat/completions"
     try:

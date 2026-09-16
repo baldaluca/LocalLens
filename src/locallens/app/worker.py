@@ -10,18 +10,23 @@ class SegnaliWorker(QObject):
 
 
 class OcrWorker(QRunnable):
-    def __init__(self, job_id: str, engine, immagini: list[bytes]) -> None:
+    def __init__(self, job_id: str, engine, immagini: list[bytes], diario=None) -> None:
         super().__init__()
         self.job_id = job_id
         self.engine = engine
         self.immagini = immagini
+        self.diario = diario
         self.segnali = SegnaliWorker()
 
     def run(self) -> None:
         try:
+            extra = {}
+            if self.diario is not None:
+                extra["diario"] = self.diario
             self.engine.submit_document(
                 self.immagini,
                 on_page=lambda e, i, n: self.segnali.pagina.emit(e, i, n),
+                **extra,
             )
         except Exception as e:  # noqa: BLE001 — frontiera worker/GUI: tutto diventa segnale (RNF4)
             self.segnali.errore.emit(self.job_id, str(e))

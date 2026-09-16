@@ -8,6 +8,7 @@ chat_template = "glm-ocr"
 vram_min_mb = 2048
 ctx_size = 4096
 max_side_px = 2048
+max_tokens = 2048
 
 [server_args]
 n_gpu_layers = 99

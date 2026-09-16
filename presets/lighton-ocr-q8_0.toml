@@ -1,0 +1,21 @@
+# Preset allineato al modello usato nel benchmark del 16/09/2026
+# (llama-server --hf-repo ggml-org/LightOnOCR-1B-1025-GGUF, GTX 960M 4GB).
+# ctx 8192: ogni Pagina usa ~2180 token immagine + poche centinaia di testo,
+# ctx 16192 misurava solo ~1 GB di VRAM in più senza vantaggi (vedi benchmark).
+id = "lighton-ocr-q8_0"
+display_name = "LightOnOCR 1B Q8_0 (benchmark 960M)"
+hf_repo = "ggml-org/LightOnOCR-1B-1025-GGUF"
+gguf_file = "LightOnOCR-1B-1025-Q8_0.gguf"
+mmproj_file = "mmproj-LightOnOCR-1B-1025-Q8_0.gguf"
+chat_template = "lighton-ocr"
+vram_min_mb = 2048
+ctx_size = 8192
+max_side_px = 2048
+max_tokens = 2048
+
+[server_args]
+n_gpu_layers = 99
+flash_attn = false
+
+[prompt]
+system = "Transcribe the document text exactly. No commentary."

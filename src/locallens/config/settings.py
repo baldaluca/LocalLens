@@ -8,7 +8,7 @@ from pathlib import Path
 DEFAULTS = {
     "sorgente": "bundlato",
     "url_esterno": "http://127.0.0.1:8011",
-    "preset_id": "glm-ocr-q8_0",
+    "preset_id": "lighton-ocr-q8_0",
     "backend_override": "",
     "porta": 8011,
     "dpi_pdf": 300,

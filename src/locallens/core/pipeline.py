@@ -1,5 +1,6 @@
 """Pipeline Documento → Pagine → Estrazioni. Sequenziale, 1 retry, poi fallback CPU."""
 import time
+import urllib.error
 from collections.abc import Callable
 from dataclasses import dataclass
 
@@ -15,6 +16,16 @@ class EstrazionePagina:
     motore_usato: str
     ms: int = 0
     nota: str | None = None
+
+
+def _è_timeout(e: InferenzaError) -> bool:
+    """Timeout socket (diretto o dentro URLError): ritentare raddoppia il danno."""
+    causa = e.__cause__
+    if isinstance(causa, TimeoutError):
+        return True
+    return isinstance(causa, urllib.error.URLError) and isinstance(
+        causa.reason, TimeoutError
+    )
 
 
 def elabora_pagine(
@@ -48,6 +59,8 @@ def elabora_pagine(
                 break
             except InferenzaError as e:
                 ultimo_errore = str(e)
+                if _è_timeout(e):
+                    break
                 continue
         if riuscito is None:
             testo = fallback(i, img)

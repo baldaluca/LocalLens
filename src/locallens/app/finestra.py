@@ -76,7 +76,13 @@ class MainWindow(QMainWindow):
         self.btn_setup.clicked.connect(lambda: self._impostazioni())
         self.btn_tema = QPushButton("Tema: chiaro")
         self.btn_tema.clicked.connect(lambda: self.cambia_tema())
-        for b in (self.btn_apri, self.btn_incolla, self.btn_schermo, self.btn_setup, self.btn_tema):
+        for b in (
+            self.btn_apri,
+            self.btn_incolla,
+            self.btn_schermo,
+            self.btn_setup,
+            self.btn_tema,
+        ):
             b.setProperty("secondario", "true")
         ingressi.addWidget(self.btn_apri)
         ingressi.addWidget(self.btn_incolla)
@@ -131,7 +137,7 @@ class MainWindow(QMainWindow):
         if engine is None:
             return
         try:
-            self.avvia(carica_documento(percorso), engine)
+            self.avvia(carica_documento(percorso), engine, documento=percorso)
         except (FileNotFoundError, ValueError) as e:
             self.mostra_banner(f"Errore: {e}")
 
@@ -160,9 +166,24 @@ class MainWindow(QMainWindow):
         except Exception as e:  # noqa: BLE001 — display assente ecc: banner, mai crash
             self.mostra_banner(f"Errore: {e}")
 
+    def _preset_ids_disponibili(self) -> list[str]:
+        """Tutti i PresetModello (shipped + utente), col corrente garantito."""
+        from locallens.config.percorsi import risorsa
+        from locallens.config.presets import elenco_preset
+        from locallens.config.settings import percorso_config
+
+        ids = elenco_preset(
+            [risorsa("presets"), percorso_config().parent / "presets"]
+        )
+        corrente = self.conf.get("preset_id", "") or "lighton-ocr-q8_0"
+        if corrente not in ids:
+            ids = [corrente, *ids]
+        return ids
+
     def _impostazioni(self) -> None:
-        dlg = DialogoImpostazioni(preset_ids=[self.conf.get("preset_id", "") or "glm-ocr-q8_0"])
+        dlg = DialogoImpostazioni(preset_ids=self._preset_ids_disponibili())
         dlg.set_sorgente(self.conf.get("sorgente", "bundlato"))
+        dlg.set_preset(self.conf.get("preset_id", "") or "lighton-ocr-q8_0")
         dlg.url.setText(self.conf.get("url_esterno", ""))
         if dlg.exec():
             self.conf.update(dlg.valori())
@@ -177,18 +198,39 @@ class MainWindow(QMainWindow):
                 else:
                     self.nascondi_banner()
 
-    def avvia(self, immagini: list[bytes], engine: OcrEngine) -> None:
+    def avvia(
+        self, immagini: list[bytes], engine: OcrEngine, documento: str = ""
+    ) -> None:
         """Elabora in background: la GUI resta responsiva (RF8)."""
         self.nascondi_banner()
         self._correnti = []
         self.progress.setValue(0)
         self.progress.show()
-        worker = OcrWorker(job_id="doc", engine=engine, immagini=immagini)
+        worker = OcrWorker(
+            job_id="doc",
+            engine=engine,
+            immagini=immagini,
+            diario=self._nuovo_diario(documento),
+        )
         worker.segnali.pagina.connect(self._on_pagina)
         worker.segnali.finito.connect(self._on_finito)
         worker.segnali.errore.connect(self._on_errore)
         self._worker = worker  # evita GC prima della fine
         QThreadPool.globalInstance().start(worker)
+
+    def _nuovo_diario(self, documento: str):
+        """Diario JSONL per l'esecuzione; mai un ostacolo (None se non scrivibile)."""
+        try:
+            from locallens.core.diario import avvia_job
+
+            return avvia_job(
+                None,
+                documento=documento,
+                sorgente=self.conf.get("sorgente", ""),
+                preset_id=self.conf.get("preset_id", ""),
+            )
+        except OSError:
+            return None
 
     def _on_pagina(self, estrazione, i: int, n: int) -> None:
         self._correnti.append(estrazione)
@@ -232,7 +274,9 @@ class MainWindow(QMainWindow):
 
     def salva(self, percorso: str) -> None:
         if not percorso:
-            QMessageBox.information(self, "Salva", "Scegli un file da dialogo (non in test).")
+            QMessageBox.information(
+                self, "Salva", "Scegli un file da dialogo (non in test)."
+            )
             return
         with open(percorso, "w", encoding="utf-8") as f:
             f.write(self.testo.toPlainText())

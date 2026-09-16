@@ -16,6 +16,13 @@ def qapp():
     return QApplication.instance() or QApplication([])
 
 
+@pytest.fixture(autouse=True)
+def _home_isolata(tmp_path, monkeypatch):
+    """Il Diario di avvia() non deve sporcare ~/.config reale."""
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setenv("APPDATA", str(tmp_path))
+
+
 def _estrazioni():
     return [
         Estrazione(pagina_id=1, testo="riga uno", motore_usato="cuda", ms=100),
@@ -109,6 +116,14 @@ def test_pulsante_incolla(qapp):
     assert w.lista.count() == 1
 
 
+def test_preset_ids_elenca_tutti_gli_shipped(qapp):
+    w = MainWindow()
+    w.conf = {"sorgente": "esterno", "url_esterno": "", "preset_id": "glm-ocr-q8_0"}
+    ids = w._preset_ids_disponibili()
+    assert "lighton-ocr-q8_0" in ids
+    assert "glm-ocr-q8_0" in ids
+
+
 def test_impostazioni_ricostruiscono_engine(qapp, monkeypatch, tmp_path):
     from locallens.app import finestra as mod_finestra
 
@@ -119,6 +134,9 @@ def test_impostazioni_ricostruiscono_engine(qapp, monkeypatch, tmp_path):
             self.url = type("U", (), {"setText": lambda self, t: None})()
 
         def set_sorgente(self, valore):
+            pass
+
+        def set_preset(self, valore):
             pass
 
         def exec(self):

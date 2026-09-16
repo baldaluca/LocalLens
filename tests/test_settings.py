@@ -5,6 +5,7 @@ from locallens.config.settings import DEFAULTS, carica, percorso_config, salva
 
 def test_default():
     assert DEFAULTS["sorgente"] == "bundlato"
+    assert DEFAULTS["preset_id"] == "lighton-ocr-q8_0"
     assert DEFAULTS["porta"] == 8011
     assert DEFAULTS["dpi_pdf"] == 300
     assert DEFAULTS["max_side_px"] == 2048

@@ -14,12 +14,13 @@ class PresetModello:
     vram_min_mb: int = 0
     ctx_size: int = 4096
     max_side_px: int = 2048
+    max_tokens: int = 2048
     enabled: bool = True
     server_args: dict = field(default_factory=dict)
     prompt: dict = field(default_factory=dict)
 
 
-_OBBLIGATORI = ("gguf_file", "mmproj_file", "chat_template", "vram_min_mb", "ctx_size", "max_side_px")
+_OBBLIGATORI = ("gguf_file", "mmproj_file", "chat_template", "vram_min_mb", "ctx_size", "max_side_px", "max_tokens")
 
 
 def load_preset(path: str) -> PresetModello:
@@ -38,6 +39,7 @@ def load_preset(path: str) -> PresetModello:
         vram_min_mb=int(d["vram_min_mb"]),
         ctx_size=int(d["ctx_size"]),
         max_side_px=int(d["max_side_px"]),
+        max_tokens=int(d["max_tokens"]),
         enabled=bool(d.get("enabled", True)),
         server_args=dict(d.get("server_args", {})),
         prompt=dict(d.get("prompt", {})),
@@ -49,3 +51,28 @@ def seleziona_preset(vram_mb: int | None, candidati: list[str]) -> str:
     if not candidati:
         raise ValueError("nessun candidato")
     return candidati[0]
+
+
+def elenco_preset(cartelle: list) -> list[str]:
+    """Id dei preset trovati come *.toml nelle cartelle (ordinati, unici).
+
+    Tollerante: salta file non TOML o senza id. Usato dal dialogo
+    Impostazioni per offrire tutti i PresetModello disponibili.
+    """
+    from pathlib import Path
+
+    trovati: list[str] = []
+    for cartella in cartelle:
+        base = Path(cartella)
+        if not base.is_dir():
+            continue
+        for f in sorted(base.glob("*.toml")):
+            try:
+                with open(f, "rb") as fh:
+                    pid = tomllib.load(fh).get("id")
+            except (OSError, ValueError):
+                continue
+            pid = pid or f.stem
+            if pid not in trovati:
+                trovati.append(pid)
+    return sorted(trovati)

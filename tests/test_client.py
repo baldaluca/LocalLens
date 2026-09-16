@@ -13,6 +13,7 @@ from locallens.core.client import (
 def test_payload_contiene_immagine_e_prompt_preset():
     p = build_chat_payload(immagine_b64="QUJD", prompt_system="Trascrici.", modello="glm-ocr")
     assert p["model"] == "glm-ocr"
+    assert p["max_tokens"] == 2048  # cap anti-runaway: mai generazione illimitata
     msgs = p["messages"]
     assert msgs[0] == {"role": "system", "content": "Trascrici."}
     user_parts = msgs[1]["content"]
@@ -21,6 +22,19 @@ def test_payload_contiene_immagine_e_prompt_preset():
         "type": "image_url",
         "image_url": {"url": "data:image/png;base64,QUJD"},
     } in user_parts
+
+
+def test_payload_cap_override():
+    p = build_chat_payload(
+        immagine_b64="QUJD", prompt_system="x", modello="m", max_tokens=512
+    )
+    assert p["max_tokens"] == 512
+
+
+def test_timeout_default_600():
+    import inspect
+
+    assert inspect.signature(invia_chat).parameters["timeout"].default == 600
 
 
 def test_parse_content_stringa():

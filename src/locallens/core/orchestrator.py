@@ -1,4 +1,5 @@
 """Orchestrazione Documento → Pagine → Estrazioni. Prompt/template dal preset, mai hardcoded."""
+
 import base64
 import uuid
 from collections.abc import Callable
@@ -35,7 +36,9 @@ class OcrEngine:
         sorgente: str = "bundlato",
     ) -> None:
         if infer is None or fallback is None:
-            raise ValueError("infer e fallback vanno iniettati (il client HTTP si cabla al seam successivo)")
+            raise ValueError(
+                "infer e fallback vanno iniettati (il client HTTP si cabla al seam successivo)"
+            )
         self._infer = infer
         self._fallback = fallback
         self._sorgente = sorgente
@@ -46,22 +49,46 @@ class OcrEngine:
         immagini: list[bytes],
         documento: str = "",
         on_page=None,
+        diario=None,
     ) -> str:
         job_id = uuid.uuid4().hex[:8]
         job = OcrJob(job_id=job_id, documento=documento, stato="processing")
         self._jobs[job_id] = job
+        if on_page is None and diario is None:
+            callback = None
+        else:
+
+            def callback(e, i, n):
+                if on_page is not None:
+                    on_page(e, i, n)
+                if diario is not None:
+                    diario.registra_pagina(
+                        pagina_id=e.pagina_id,
+                        ms=e.ms,
+                        motore_usato=e.motore_usato,
+                        chars=len(e.testo),
+                        nota=e.nota,
+                    )
+
         pagine = elabora_pagine(
             immagini,
             infer=self._infer,
             fallback=self._fallback,
             sorgente=self._sorgente,
-            on_page=on_page,
+            on_page=callback,
         )
         job.estrazioni = [
-            Estrazione(pagina_id=p.pagina_id, testo=p.testo, motore_usato=p.motore_usato, ms=p.ms)
+            Estrazione(
+                pagina_id=p.pagina_id,
+                testo=p.testo,
+                motore_usato=p.motore_usato,
+                ms=p.ms,
+            )
             for p in pagine
         ]
         job.stato = "done"
+        if diario is not None:
+            diario.chiudi(stato="done")
         return job_id
 
     def cancel(self, job_id: str) -> None:
@@ -87,6 +114,7 @@ def crea_engine(
     fallback=None,
     max_side: int = 2048,
     contrasto: bool = False,
+    timeout: int = 600,
 ) -> OcrEngine:
     """Collega client HTTP + fallback Tesseract dietro la pipeline. Default = tesseract reale."""
     from locallens.fallback.tesseract import estrai as tesseract_estrai
@@ -102,8 +130,11 @@ def crea_engine(
             from locallens.core.errori import InferenzaError
 
             raise InferenzaError(f"preprocessing fallito: {e}") from e
-        payload = build_chat_payload(base64.b64encode(pronta).decode(), prompt, preset.id)
-        return invia_chat(base_url, payload, post=post), motore
+        payload = build_chat_payload(
+            base64.b64encode(pronta).decode(), prompt, preset.id,
+            max_tokens=preset.max_tokens,
+        )
+        return invia_chat(base_url, payload, post=post, timeout=timeout), motore
 
     def fb_default(_pagina_id: int, png: bytes) -> str:
         return tesseract_estrai(png)
