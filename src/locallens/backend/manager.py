@@ -52,12 +52,94 @@ def is_url_privata(url: str) -> bool:
 
 
 class BackendManager:
-    def start(self, backend_gpu: str, preset_id: str, porta: int = 8011) -> BackendHandle:
-        """Sceglie bins/<os>/<backend>/llama-server, scan porta 8011-8020, healthcheck. Da implementare."""
-        raise NotImplementedError
+    """Gestisce il subprocess llama-server. Dipendenze iniettabili per i test."""
+
+    def __init__(
+        self,
+        platform: str = "linux",
+        bins_root: str = "bins",
+        esiste=None,
+        porte_occupate=None,
+        lancia=None,
+        verifica=None,
+        uccidi=None,
+    ) -> None:
+        import socket
+        import subprocess
+        import urllib.request
+        from collections.abc import (
+            Callable,  # noqa: F401 (import locale, niente dipendenze extra)
+        )
+
+        self._platform = platform
+        self._bins_root = bins_root
+        self.handle: BackendHandle | None = None
+
+        def _esiste(p) -> bool:
+            return Path(p).exists()
+
+        def _occupate() -> set[int]:
+            occ: set[int] = set()
+            for porta in range(8011, 8021):
+                with socket.socket() as s:
+                    s.settimeout(0.05)
+                    if s.connect_ex(("127.0.0.1", porta)) == 0:
+                        occ.add(porta)
+            return occ
+
+        def _lancia(cmd: list[str]) -> int:
+            proc = subprocess.Popen(cmd)
+            return proc.pid
+
+        def _verifica(url: str) -> bool:
+            try:
+                with urllib.request.urlopen(url + "/health", timeout=2) as r:
+                    return r.status == 200
+            except OSError:
+                return False
+
+        def _uccidi(pid: int) -> None:
+            import signal
+
+            try:
+                import os
+
+                os.kill(pid, signal.SIGTERM)
+            except OSError:
+                pass
+
+        self._esiste = esiste or _esiste
+        self._porte_occupate = porte_occupate or _occupate
+        self._lancia = lancia or _lancia
+        self._verifica = verifica or _verifica
+        self._uccidi = uccidi or _uccidi
+
+    def start(self, backend_gpu: str, preset_id: str = "", porta: int = 8011) -> BackendHandle:
+        """Avvia bins/<os>/<backend>/llama-server sulla prima porta libera, con healthcheck."""
+        binario = resolve_binary(self._platform, backend_gpu, self._bins_root)
+        if not self._esiste(binario):
+            raise FileNotFoundError(f"binario mancante: {binario}")
+        libera = trova_porta_libera(porta, self._porte_occupate())
+        cmd = [str(binario), "--port", str(libera)]
+        if preset_id:
+            cmd += ["--preset", preset_id]
+        pid = self._lancia(cmd)
+        base_url = f"http://127.0.0.1:{libera}"
+        if not self._verifica(base_url):
+            self._uccidi(pid)
+            raise RuntimeError(f"healthcheck fallito su {base_url} ({backend_gpu})")
+        self.handle = BackendHandle(backend_gpu, base_url, libera, pid)
+        return self.handle
 
     def stop(self) -> None:
-        raise NotImplementedError
+        if self.handle and self.handle.pid is not None:
+            self._uccidi(self.handle.pid)
+        self.handle = None
 
     def health(self) -> bool:
-        raise NotImplementedError
+        if self.handle is None:
+            return False
+        try:
+            return bool(self._verifica(self.handle.base_url))
+        except OSError:
+            return False
