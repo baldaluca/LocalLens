@@ -114,15 +114,25 @@ class BackendManager:
         self._verifica = verifica or _verifica
         self._uccidi = uccidi or _uccidi
 
-    def start(self, backend_gpu: str, preset_id: str = "", porta: int = 8011) -> BackendHandle:
+    def start(
+        self,
+        backend_gpu: str,
+        preset=None,
+        porta: int = 8011,
+        modello: str = "",
+        mmproj: str = "",
+    ) -> BackendHandle:
         """Avvia bins/<os>/<backend>/llama-server sulla prima porta libera, con healthcheck."""
         binario = resolve_binary(self._platform, backend_gpu, self._bins_root)
         if not self._esiste(binario):
             raise FileNotFoundError(f"binario mancante: {binario}")
         libera = trova_porta_libera(porta, self._porte_occupate())
-        cmd = [str(binario), "--port", str(libera)]
-        if preset_id:
-            cmd += ["--preset", preset_id]
+        if preset is None:
+            cmd = [str(binario), "--port", str(libera)]
+        else:
+            from locallens.backend.cli import preset_to_argv
+
+            cmd = preset_to_argv(preset, str(binario), modello, mmproj, libera)
         pid = self._lancia(cmd)
         base_url = f"http://127.0.0.1:{libera}"
         if not self._verifica(base_url):

@@ -31,6 +31,18 @@ def test_start_ok_sceglie_porta_libera():
     assert "bins/linux/cuda/llama-server" in lanci[0][0]
 
 
+def test_start_con_preset_usa_argv_reali():
+    from locallens.config.presets import load_preset
+
+    mgr, lanci, _ = _manager()
+    preset = load_preset("presets/glm-ocr-q8_0.toml")
+    mgr.start("cuda", preset=preset, modello="/m/g.gguf", mmproj="/m/p.gguf")
+    cmd = lanci[0]
+    assert "--preset" not in cmd
+    assert "-m" in cmd and "--mmproj" in cmd
+    assert cmd[cmd.index("-m") + 1] == "/m/g.gguf"
+
+
 def test_start_fallisce_se_binario_manca():
     mgr, lanci, _ = _manager(esiste=False)
     with pytest.raises(FileNotFoundError):
