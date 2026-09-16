@@ -58,3 +58,67 @@ def test_salva_su_file(qapp, tmp_path):
     dest = tmp_path / "out.txt"
     w.salva(str(dest))
     assert "riga due" in dest.read_text()
+
+
+def test_avvia_elabora_in_background(qapp):
+    from PySide6.QtCore import QCoreApplication, QThreadPool
+
+    from locallens.core.orchestrator import OcrEngine
+
+    w = MainWindow()
+    eng = OcrEngine(infer=lambda p, i: (f"t{p}", "cuda"), fallback=lambda p, i: "fb")
+    w.avvia([b"a", b"b"], eng)
+    assert QThreadPool.globalInstance().waitForDone(5000)
+    QCoreApplication.processEvents()
+    assert w.lista.count() == 2
+    assert w.progress.isHidden()
+
+
+def test_pulsante_apri_carica_file(qapp, monkeypatch):
+    from PySide6.QtCore import QCoreApplication, QThreadPool
+    from PySide6.QtWidgets import QFileDialog
+
+    from locallens.core.orchestrator import OcrEngine
+
+    monkeypatch.setattr(
+        QFileDialog, "getOpenFileName", lambda *a, **k: ("tests/assets/ocr-test-01.png", "")
+    )
+    w = MainWindow()
+    w.set_engine(OcrEngine(infer=lambda p, i: (f"t{p}", "cuda"), fallback=lambda p, i: "fb"))
+    w._apri_file()
+    assert QThreadPool.globalInstance().waitForDone(5000)
+    QCoreApplication.processEvents()
+    assert w.lista.count() == 1
+
+
+def test_pulsante_incolla(qapp):
+    from PySide6.QtCore import QCoreApplication, QThreadPool
+    from PySide6.QtGui import QImage
+    from PySide6.QtWidgets import QApplication
+
+    from locallens.core.orchestrator import OcrEngine
+
+    img = QImage(40, 20, QImage.Format_RGB888)
+    img.fill(0xFFFFFF)
+    QApplication.clipboard().setImage(img)
+    w = MainWindow()
+    w.set_engine(OcrEngine(infer=lambda p, i: ("t", "cuda"), fallback=lambda p, i: "fb"))
+    w._da_appunti()
+    assert QThreadPool.globalInstance().waitForDone(5000)
+    QCoreApplication.processEvents()
+    assert w.lista.count() == 1
+
+
+def test_avvia_mostra_banner_su_errore(qapp):
+    from PySide6.QtCore import QCoreApplication, QThreadPool
+
+    from locallens.core.orchestrator import OcrEngine
+
+    eng = OcrEngine(infer=lambda p, i: (f"t{p}", "cuda"), fallback=lambda p, i: "fb")
+    eng.submit_document = lambda *a, **k: (_ for _ in ()).throw(RuntimeError("boom"))
+    w = MainWindow()
+    w.avvia([b"a"], eng)
+    assert QThreadPool.globalInstance().waitForDone(5000)
+    QCoreApplication.processEvents()
+    assert not w.banner.isHidden()
+    assert "boom" in w.banner.text()

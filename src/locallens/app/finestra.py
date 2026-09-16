@@ -1,5 +1,6 @@
 """Finestra principale. Parla solo con core via OcrWorker, mai con backend/URL ( §8)."""
 
+from PySide6.QtCore import QThreadPool
 from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
@@ -13,7 +14,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from locallens.core.orchestrator import Estrazione
+from locallens.app.worker import OcrWorker
+from locallens.core.orchestrator import Estrazione, OcrEngine
 
 
 class MainWindow(QMainWindow):
@@ -51,10 +53,117 @@ class MainWindow(QMainWindow):
         bottoni.addWidget(self.btn_copia)
         bottoni.addWidget(self.btn_salva)
 
+        ingressi = QHBoxLayout()
+        destra.addLayout(ingressi)
+        self.btn_apri = QPushButton("Apri file/PDF")
+        self.btn_apri.clicked.connect(lambda: self._apri_file())
+        self.btn_incolla = QPushButton("Incolla")
+        self.btn_incolla.clicked.connect(lambda: self._da_appunti())
+        self.btn_schermo = QPushButton("Screenshot")
+        self.btn_schermo.clicked.connect(lambda: self._da_screenshot())
+        self.btn_setup = QPushButton("Impostazioni")
+        self.btn_setup.clicked.connect(lambda: self._impostazioni())
+        ingressi.addWidget(self.btn_apri)
+        ingressi.addWidget(self.btn_incolla)
+        ingressi.addWidget(self.btn_schermo)
+        ingressi.addWidget(self.btn_setup)
+
         self.progress = QProgressBar()
         self.progress.hide()
         layout.addWidget(self.progress)
         self.statusBar().showMessage("pronto")
+        self._correnti: list[Estrazione] = []
+        self._worker: OcrWorker | None = None
+        self._engine: OcrEngine | None = None
+        self.conf: dict = {"sorgente": "bundlato", "url_esterno": "", "preset_id": ""}
+
+    def set_engine(self, engine: OcrEngine) -> None:
+        self._engine = engine
+
+    def _richiedi_engine(self) -> OcrEngine | None:
+        if self._engine is None:
+            self.mostra_banner("Motore non pronto: backend non avviato.")
+            return None
+        return self._engine
+
+    def _apri_file(self) -> None:
+        from PySide6.QtWidgets import QFileDialog
+
+        from locallens.app.ingresso import carica_documento
+
+        percorso, _ = QFileDialog.getOpenFileName(
+            self, "Apri immagine o PDF", "", "Documenti (*.png *.jpg *.jpeg *.pdf)"
+        )
+        if not percorso:
+            return
+        engine = self._richiedi_engine()
+        if engine is None:
+            return
+        try:
+            self.avvia(carica_documento(percorso), engine)
+        except (FileNotFoundError, ValueError) as e:
+            self.mostra_banner(f"Errore: {e}")
+
+    def _da_appunti(self) -> None:
+        from PySide6.QtWidgets import QApplication
+
+        from locallens.app.ingresso import da_appunti
+
+        engine = self._richiedi_engine()
+        if engine is None:
+            return
+        png = da_appunti(QApplication.clipboard())
+        if png is None:
+            self.mostra_banner("Appunti vuoti: nessuna immagine.")
+            return
+        self.avvia([png], engine)
+
+    def _da_screenshot(self) -> None:
+        from locallens.app.ingresso import cattura_schermo
+
+        engine = self._richiedi_engine()
+        if engine is None:
+            return
+        try:
+            self.avvia([cattura_schermo()], engine)
+        except Exception as e:  # noqa: BLE001 — display assente ecc: banner, mai crash
+            self.mostra_banner(f"Errore: {e}")
+
+    def _impostazioni(self) -> None:
+        from locallens.app.impostazioni import DialogoImpostazioni
+
+        dlg = DialogoImpostazioni(preset_ids=[self.conf.get("preset_id", "") or "glm-ocr-q8_0"])
+        if dlg.exec():
+            self.conf.update(dlg.valori())
+            self.set_stato(f"sorgente={self.conf['sorgente']} preset={self.conf['preset_id']}")
+
+    def avvia(self, immagini: list[bytes], engine: OcrEngine) -> None:
+        """Elabora in background: la GUI resta responsiva (RF8)."""
+        self.nascondi_banner()
+        self._correnti = []
+        self.progress.setValue(0)
+        self.progress.show()
+        worker = OcrWorker(job_id="doc", engine=engine, immagini=immagini)
+        worker.segnali.pagina.connect(self._on_pagina)
+        worker.segnali.finito.connect(self._on_finito)
+        worker.segnali.errore.connect(self._on_errore)
+        self._worker = worker  # evita GC prima della fine
+        QThreadPool.globalInstance().start(worker)
+
+    def _on_pagina(self, estrazione, i: int, n: int) -> None:
+        self._correnti.append(estrazione)
+        self.progress.setMaximum(n)
+        self.progress.setValue(i)
+
+    def _on_finito(self, job_id: str) -> None:
+        self.progress.hide()
+        self.mostra_estrazioni(self._correnti)
+        self._worker = None
+
+    def _on_errore(self, job_id: str, messaggio: str) -> None:
+        self.progress.hide()
+        self.mostra_banner(f"Errore: {messaggio}")
+        self._worker = None
 
     def set_stato(self, messaggio: str) -> None:
         self.statusBar().showMessage(messaggio)

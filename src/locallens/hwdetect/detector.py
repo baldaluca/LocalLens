@@ -36,6 +36,69 @@ def decide(
     )
 
 
-def detect() -> HardwareInfo:
-    """Rileva backend disponibili ordinati per preferenza. Da implementare (Q8)."""
-    raise NotImplementedError
+def detect(
+    piattaforma: str | None = None,
+    esegui=None,
+    lspci=None,
+    bins_presenti: set[str] | None = None,
+    bins_root: str = "bins",
+) -> HardwareInfo:
+    """Rileva GPU/backend/VRAM. Probe iniettabili; default = sistema reale."""
+    import subprocess
+    import sys
+    from pathlib import Path
+
+    from locallens.backend.manager import resolve_binary
+
+    piattaforma = piattaforma or sys.platform
+    os = "linux" if piattaforma.startswith("linux") else "win32"
+
+    def _esegui(cmd: list[str]) -> str | None:
+        try:
+            out = subprocess.run(cmd, capture_output=True, text=True, timeout=10, check=False)
+            return out.stdout.strip() or None
+        except (OSError, subprocess.SubprocessError):
+            return None
+
+    esegui = esegui or _esegui
+
+    def _lspci() -> str:
+        return esegui(["lspci"]) or ""
+
+    lspci_out = (lspci or _lspci)()
+
+    vram_mb: int | None = None
+    vendor = "none"
+    smi = esegui(
+        ["nvidia-smi", "--query-gpu=memory.total", "--format=csv,noheader,nounits"]
+    )
+    if smi:
+        vendor = "nvidia"
+        try:
+            vram_mb = int(smi.splitlines()[0].strip().split()[0])
+        except (ValueError, IndexError):
+            vram_mb = None
+
+    if bins_presenti is None:
+        bins_presenti = set()
+        for backend in ("cuda", "hip", "vulkan", "cpu"):
+            try:
+                if Path(resolve_binary(os, backend, bins_root)).exists():
+                    bins_presenti.add(backend)
+            except ValueError:
+                pass
+    if vendor == "none" and bins_presenti:
+        vendor = "unknown"
+
+    optimus = (
+        piattaforma.startswith("linux")
+        and vendor == "nvidia"
+        and "intel" in lspci_out.lower()
+    )
+    return decide(
+        platform=os if os in ("linux", "win32") else piattaforma,
+        gpu_vendor=vendor,
+        vram_mb=vram_mb,
+        is_hybrid_optimus=optimus,
+        bins_disponibili=bins_presenti,
+    )

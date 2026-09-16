@@ -1,0 +1,67 @@
+"""Sorgente modello (RF10) + avviso privacy su URL non locale (RNF1)."""
+
+from PySide6.QtWidgets import (
+    QComboBox,
+    QDialog,
+    QDialogButtonBox,
+    QFormLayout,
+    QLabel,
+    QLineEdit,
+)
+
+from locallens.backend.manager import is_url_privata
+
+
+class DialogoImpostazioni(QDialog):
+    def __init__(self, preset_ids: list[str], parent=None) -> None:
+        super().__init__(parent)
+        self.setWindowTitle("Impostazioni LocalLens")
+        layout = QFormLayout(self)
+
+        self.sorgente = QComboBox()
+        self.sorgente.addItems(["bundlato", "esterno", "nessuno"])
+        self.sorgente.currentTextChanged.connect(lambda _: self._aggiorna_avviso())
+        layout.addRow("Sorgente modello", self.sorgente)
+
+        self.url = QLineEdit("http://127.0.0.1:8011")
+        self.url.textChanged.connect(lambda _: self._aggiorna_avviso())
+        layout.addRow("URL server esterno", self.url)
+
+        self.preset = QComboBox()
+        self.preset.addItems(preset_ids)
+        layout.addRow("Preset (auto se invariato)", self.preset)
+
+        self.avviso = QLabel(
+            "Attenzione privacy: l'URL non punta alla rete locale, "
+            "immagini e testo lasceranno questa macchina."
+        )
+        self.avviso.setStyleSheet("color: #a00;")
+        self.avviso.hide()
+        layout.addRow(self.avviso)
+
+        bottoni = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+        )
+        bottoni.accepted.connect(self.accept)
+        bottoni.rejected.connect(self.reject)
+        layout.addRow(bottoni)
+        self._aggiorna_avviso()
+
+    def set_sorgente(self, valore: str) -> None:
+        self.sorgente.setCurrentText(valore)
+
+    def set_preset(self, preset_id: str) -> None:
+        self.preset.setCurrentText(preset_id)
+
+    def _aggiorna_avviso(self) -> None:
+        mostra = self.sorgente.currentText() == "esterno" and not is_url_privata(
+            self.url.text()
+        )
+        self.avviso.setVisible(mostra)
+
+    def valori(self) -> dict:
+        return {
+            "sorgente": self.sorgente.currentText(),
+            "url_esterno": self.url.text(),
+            "preset_id": self.preset.currentText(),
+        }
