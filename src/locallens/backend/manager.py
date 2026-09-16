@@ -13,10 +13,13 @@ class BackendHandle:
     pid: int | None = None
 
 
-def resolve_binary(platform: str, backend_gpu: str, bins_root: str = "bins") -> Path:
-    """bins/<os>/<backend>/llama-server[.exe]. Nessun check di esistenza qui."""
+def resolve_binary(platform: str, backend_gpu: str, bins_root: str | None = None) -> Path:
+    """bins/<os>/<backend>/llama-server[.exe]. Default = bundle o CWD."""
+    from locallens.config.percorsi import risorsa
+
+    root = Path(bins_root) if bins_root else risorsa("bins")
     nome = "llama-server.exe" if platform == "win32" else "llama-server"
-    return Path(bins_root) / platform / backend_gpu / nome
+    return root / platform / backend_gpu / nome
 
 
 def trova_porta_libera(partenza: int = 8011, occupate: set[int] | None = None) -> int:

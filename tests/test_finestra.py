@@ -109,6 +109,36 @@ def test_pulsante_incolla(qapp):
     assert w.lista.count() == 1
 
 
+def test_impostazioni_ricostruiscono_engine(qapp, monkeypatch, tmp_path):
+    from locallens.app import finestra as mod_finestra
+
+    viste = {}
+
+    class DialogoFinto:
+        def __init__(self, preset_ids=None, parent=None):
+            self.url = type("U", (), {"setText": lambda self, t: None})()
+
+        def set_sorgente(self, valore):
+            pass
+
+        def exec(self):
+            return True
+
+        def valori(self):
+            return {"sorgente": "nessuno", "url_esterno": "", "preset_id": "glm-ocr-q8_0"}
+
+    monkeypatch.setattr(mod_finestra, "DialogoImpostazioni", DialogoFinto)
+    monkeypatch.setattr(
+        mod_finestra, "salva_impostazioni", lambda conf: viste.update(conf=conf)
+    )
+    w = MainWindow()
+    w.set_ricostruttore(lambda conf: viste.update(ricostrutito=True) or ("ENG", "stato-x", ""))
+    w._impostazioni()
+    assert viste["conf"]["sorgente"] == "nessuno"
+    assert viste["ricostrutito"] is True
+    assert "stato-x" in w.statusBar().currentMessage()
+
+
 def test_avvia_mostra_banner_su_errore(qapp):
     from PySide6.QtCore import QCoreApplication, QThreadPool
 

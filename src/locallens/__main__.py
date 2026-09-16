@@ -14,47 +14,43 @@ def _solo_cpu(motivo: str):
     return OcrEngine(infer=infer, fallback=lambda p, i: estrai(i), sorgente="nessuno")
 
 
-def costruisci_engine():
-    """hwdetect → preset → backend bundlato oppure fallback. Ritorna (engine, stato, banner)."""
-    from locallens.backend.manager import BackendManager
-    from locallens.config.presets import load_preset, seleziona_preset
-    from locallens.core.orchestrator import crea_engine
+def _preset_da_conf(conf):
+    from locallens.config.percorsi import risorsa
+    from locallens.config.presets import load_preset
+
+    pid = conf.get("preset_id", "") or "glm-ocr-q8_0"
+    try:
+        return load_preset(str(risorsa("presets", f"{pid}.toml")))
+    except (ValueError, OSError):
+        return load_preset(str(risorsa("presets", "glm-ocr-q8_0.toml")))
+
+
+def costruisci_da_conf(conf):
+    """Boot completo: detect → preset → fabbrica. Ritorna (engine, stato, banner)."""
+    from locallens.config.presets import seleziona_preset
+    from locallens.core.fabbrica import costruisci
     from locallens.hwdetect.detector import detect
 
     info = detect()
-    try:
-        preset = load_preset("presets/glm-ocr-q8_0.toml")
-    except ValueError:
-        return _solo_cpu("preset non valido"), "cpu (solo CPU)", "Solo CPU: preset non valido."
-    stato = f"{info.candidati[0]} • preset={seleziona_preset(info.vram_mb, ['glm-ocr-q8_0'])}"
-    if info.candidati[0] == "cpu":
-        return (
-            _solo_cpu("nessun backend GPU"),
-            stato + " (solo CPU)",
-            "Solo CPU: nessun backend GPU utilizzabile.",
-        )
-    from locallens.config.pesi import risolvi_pesi
-
-    try:
-        modello, mmproj = risolvi_pesi(preset)
-    except FileNotFoundError as e:
-        return _solo_cpu(str(e)), stato + " (solo CPU)", f"Solo CPU: {e}"
-    try:
-        handle = BackendManager().start(info.candidati[0], preset=preset, modello=modello, mmproj=mmproj)
-        engine = crea_engine(handle.base_url, preset, motore=info.candidati[0])
-        return engine, f"{stato} • {handle.base_url}", ""
-    except (FileNotFoundError, RuntimeError, OSError) as e:
-        return _solo_cpu(str(e)), stato + " (solo CPU)", f"Solo CPU: {e}"
+    preset = _preset_da_conf(conf)
+    conf = dict(conf, preset_id=preset.id)
+    engine, stato, banner = costruisci(conf, info, preset)
+    atteso = seleziona_preset(info.vram_mb, [preset.id])
+    return engine, f"{stato} • atteso={atteso}", banner
 
 
 def main() -> int:
     from PySide6.QtWidgets import QApplication
 
     from locallens.app.finestra import MainWindow
+    from locallens.config.settings import carica
 
     app = QApplication(sys.argv)
+    conf = carica()
     finestra = MainWindow()
-    engine, stato, banner = costruisci_engine()
+    finestra.conf = conf
+    finestra.set_ricostruttore(costruisci_da_conf)
+    engine, stato, banner = costruisci_da_conf(conf)
     finestra.set_engine(engine)
     finestra.set_stato(stato)
     if banner:

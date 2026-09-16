@@ -34,6 +34,11 @@ def scarica(os: str, backend: str, bins_root: str = "bins") -> Path:
     else:
         with tarfile.open(archivio) as t:
             t.extractall(dest, filter="data")
+    for figlio in list(dest.iterdir()):
+        if figlio.is_dir():  # release dentro singola cartella: appiattisci
+            for elemento in figlio.iterdir():
+                shutil.move(str(elemento), dest / elemento.name)
+            figlio.rmdir()
     print(f"{os}/{backend}: {asset_name(os, backend)} -> {dest}")
     return dest
 

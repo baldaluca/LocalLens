@@ -14,7 +14,9 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from locallens.app.impostazioni import DialogoImpostazioni
 from locallens.app.worker import OcrWorker
+from locallens.config.settings import salva as salva_impostazioni
 from locallens.core.orchestrator import Estrazione, OcrEngine
 
 
@@ -80,6 +82,10 @@ class MainWindow(QMainWindow):
     def set_engine(self, engine: OcrEngine) -> None:
         self._engine = engine
 
+    def set_ricostruttore(self, fn) -> None:
+        """fn(conf) -> (engine, stato, banner). Iniettato da __main__."""
+        self._ricostruttore = fn
+
     def _richiedi_engine(self) -> OcrEngine | None:
         if self._engine is None:
             self.mostra_banner("Motore non pronto: backend non avviato.")
@@ -130,12 +136,21 @@ class MainWindow(QMainWindow):
             self.mostra_banner(f"Errore: {e}")
 
     def _impostazioni(self) -> None:
-        from locallens.app.impostazioni import DialogoImpostazioni
-
         dlg = DialogoImpostazioni(preset_ids=[self.conf.get("preset_id", "") or "glm-ocr-q8_0"])
+        dlg.set_sorgente(self.conf.get("sorgente", "bundlato"))
+        dlg.url.setText(self.conf.get("url_esterno", ""))
         if dlg.exec():
             self.conf.update(dlg.valori())
-            self.set_stato(f"sorgente={self.conf['sorgente']} preset={self.conf['preset_id']}")
+            salva_impostazioni(self.conf)
+            ric = getattr(self, "_ricostruttore", None)
+            if ric is not None:
+                engine, stato, banner = ric(self.conf)
+                self.set_engine(engine)
+                self.set_stato(stato)
+                if banner:
+                    self.mostra_banner(banner)
+                else:
+                    self.nascondi_banner()
 
     def avvia(self, immagini: list[bytes], engine: OcrEngine) -> None:
         """Elabora in background: la GUI resta responsiva (RF8)."""
