@@ -4,3 +4,35 @@ __pycache__/
 bins/
 dist/
 build/
+
+# Build / test
+*.spec.bak
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+
+# Modelli e pesi locali (mai nel repo)
+*.gguf
+*.bin
+pesi/
+weights/
+models/
+
+# Documenti di test personali (PDF/txt dell'utente, non parte dell'app)
+*.pdf
+*.txt
+!requirements*.txt
+
+# Log esecuzioni
+*.log
+logs/
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*~
