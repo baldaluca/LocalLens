@@ -25,6 +25,11 @@ models/
 *.txt
 !requirements*.txt
 
+# Banchi OCR locali: PNG + testi dei Documenti personali (restano sul PC)
+.scratch/*/banco/png/
+.scratch/*/banco/pagine.jsonl
+.scratch/*/banco/file3-score.json
+
 # Log esecuzioni
 *.log
 logs/
