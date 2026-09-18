@@ -61,6 +61,9 @@ STRINGS: dict[str, dict[str, str]] = {
         "stato_gpu_solo_cpu": "GPU locale (solo CPU)",
         "motivo_gpu_non_raggiungibile": "GPU locale non raggiungibile: {url}",
         "banner_solo_cpu_assente": "Solo CPU: server assente su {url}",
+        "etichetta_lingua": "Lingua applicazione",
+        "lingua_nome_it": "Italiano",
+        "lingua_nome_en": "Inglese",
     },
     "en": {
         "btn_apri": "Open file/PDF",
@@ -120,6 +123,9 @@ STRINGS: dict[str, dict[str, str]] = {
         "stato_gpu_solo_cpu": "Local GPU (CPU only)",
         "motivo_gpu_non_raggiungibile": "Local GPU unreachable: {url}",
         "banner_solo_cpu_assente": "CPU only: no server at {url}",
+        "etichetta_lingua": "Application language",
+        "lingua_nome_it": "Italian",
+        "lingua_nome_en": "English",
     },
 }
 

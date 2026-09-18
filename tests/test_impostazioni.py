@@ -173,3 +173,41 @@ def test_url_distinti_per_opzione(qapp):
     v = d.valori()
     assert v["url_esterno"] == "http://cloud:8000"
     assert v["url_gpu_locale"] == "http://127.0.0.1:10000"
+
+
+def test_dialogo_inglese_mostra_testi_inglesi(qapp):
+    from locallens.app.lingua import STRINGS
+
+    d = DialogoImpostazioni(lingua="en")
+    assert d.windowTitle() == STRINGS["en"]["dlg_impostazioni_titolo"]
+    assert d.etichetta_url.text() == STRINGS["en"]["etichetta_url"]
+    assert d.etichetta_token.text() == STRINGS["en"]["etichetta_token"]
+    assert d.aiuto_lingue.text() == STRINGS["en"]["aiuto_lingue"]
+    assert d.avviso.text() == STRINGS["en"]["avviso_privacy_esterno"]
+
+
+def test_selettore_lingua_roundtrip(qapp):
+    from locallens.app.lingua import STRINGS
+
+    d = DialogoImpostazioni()
+    assert d.valori()["lingua"] == "it"
+    voci = [d.selettore_lingua.itemText(i) for i in range(d.selettore_lingua.count())]
+    assert voci == [STRINGS["it"]["lingua_nome_it"], STRINGS["it"]["lingua_nome_en"]]
+    d.set_lingua("en")
+    assert d.valori()["lingua"] == "en"
+    d.set_lingua("it")
+    assert d.valori()["lingua"] == "it"
+
+
+def test_set_lingua_invalida_non_cambia(qapp):
+    d = DialogoImpostazioni()
+    d.set_lingua("en")
+    d.set_lingua("fr")
+    assert d.valori()["lingua"] == "en"
+
+
+def test_riga_lingua_sempre_visibile(qapp):
+    d = DialogoImpostazioni()
+    for sorg in ("bundlato", "esterno", "nessuno"):
+        d.set_sorgente(sorg)
+        assert not d.selettore_lingua.isHidden()
