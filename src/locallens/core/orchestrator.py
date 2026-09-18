@@ -189,10 +189,13 @@ def crea_engine_cloud(
             from locallens.core.errori import InferenzaError
 
             raise InferenzaError(f"preprocessing fallito: {e}") from e
-        payload = build_chat_payload(
-            base64.b64encode(pronta).decode(), prompt, modello,
-            max_tokens=max_tokens,
-        )
+        from locallens.core.client import build_ollama_payload, dialetto
+
+        b64 = base64.b64encode(pronta).decode()
+        if dialetto(base_url) == "ollama":
+            payload = build_ollama_payload(b64, prompt, modello, max_tokens=max_tokens)
+        else:
+            payload = build_chat_payload(b64, prompt, modello, max_tokens=max_tokens)
         testo = invia_chat(base_url, payload, post=post, timeout=timeout, token=token or None)
         return testo, "esterno"
 

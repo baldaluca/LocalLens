@@ -33,6 +33,11 @@ def build_chat_payload(
 
 
 def parse_chat_text(risposta: dict) -> str:
+    if isinstance(risposta.get("message"), dict):
+        content = risposta["message"].get("content", "")
+        if isinstance(content, str):
+            return content
+        raise InferenzaError("content non testuale")
     try:
         content = risposta["choices"][0]["message"]["content"]
     except (KeyError, IndexError, TypeError) as e:
@@ -42,6 +47,25 @@ def parse_chat_text(risposta: dict) -> str:
     if isinstance(content, list):
         return "".join(p.get("text", "") for p in content if isinstance(p, dict))
     raise InferenzaError("content non testuale")
+
+
+def dialetto(url: str) -> str:
+    """'ollama' se l'URL punta a /api/chat, altrimenti 'openai'."""
+    return "ollama" if "/api/chat" in url else "openai"
+
+
+def build_ollama_payload(
+    immagine_b64: str, prompt_system: str, modello: str, max_tokens: int = 2048
+) -> dict:
+    return {
+        "model": modello,
+        "stream": False,
+        "options": {"num_predict": max_tokens},
+        "messages": [
+            {"role": "system", "content": prompt_system},
+            {"role": "user", "content": prompt_system, "images": [immagine_b64]},
+        ],
+    }
 
 
 def invia_chat(

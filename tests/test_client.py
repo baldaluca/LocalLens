@@ -145,3 +145,28 @@ def test_errore_http_include_corpo_server():
             assert "model not found" in str(e)
     finally:
         urllib.request.urlopen = orig
+
+
+def test_dialetto_ollama_da_url():
+    import locallens.core.client as client
+
+    assert client.dialetto("https://ollama.com/api/chat") == "ollama"
+    assert client.dialetto("http://127.0.0.1:10000/v1/chat/completions") == "openai"
+
+
+def test_payload_ollama_con_immagini_e_no_stream():
+    import locallens.core.client as client
+
+    p = client.build_ollama_payload("AAA", "Leggi.", "gemma3:4b", 512)
+    assert p["model"] == "gemma3:4b"
+    assert p["stream"] is False
+    assert p["options"]["num_predict"] == 512
+    user = [m for m in p["messages"] if m["role"] == "user"][0]
+    assert isinstance(user["content"], str)
+    assert user["images"] == ["AAA"]
+
+
+def test_parse_risposta_ollama():
+    import locallens.core.client as client
+
+    assert client.parse_chat_text({"message": {"content": "testo"}}) == "testo"
