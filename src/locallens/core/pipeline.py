@@ -20,6 +20,11 @@ class EstrazionePagina:
     motore_usato: str
     ms: int = 0
     nota: str | None = None
+    scartato: str | None = None  # output VLM rifiutato dal filtro (audit diario)
+
+
+#: Tetto dello scartato conservato: il diario resta leggibile anche su loop lunghi.
+MAX_SCARTATO = 2000
 
 
 _STOP_IT = frozenset(
@@ -220,6 +225,7 @@ def elabora_pagine(
                 on_page(estrazione, i, totale)
             continue
         ultimo_errore: str | None = None
+        respinto: str | None = None
         riuscito: EstrazionePagina | None = None
         for _ in range(2):
             try:
@@ -237,6 +243,7 @@ def elabora_pagine(
                     # Difetto deterministico dello stesso input: riprovare
                     # rigenererebbe la stessa degenerazione (P4: ~65s sprecati).
                     ultimo_errore = motivo + "; fail-fast (senza retry)"
+                    respinto = testo[:MAX_SCARTATO]
                     break
                 riuscito = EstrazionePagina(i, testo, motore, _ms(t0))
                 break
@@ -248,9 +255,15 @@ def elabora_pagine(
         if riuscito is None:
             testo = fallback(i, img)
             nota = ultimo_errore
-            if not testo.strip():
+            corpo = testo.strip()
+            if not corpo:
                 nota = ((ultimo_errore + "; ") if ultimo_errore else "") + "fallback vuoto"
-            riuscito = EstrazionePagina(i, testo, "cpu-tesseract", _ms(t0), nota)
+            elif len(corpo) < 20:
+                # Ultima spiaggia quasi muta: l'utente deve saperlo dalla nota.
+                nota = ((ultimo_errore + "; ") if ultimo_errore else "") + (
+                    f"fallback debole ({len(corpo)} char)"
+                )
+            riuscito = EstrazionePagina(i, testo, "cpu-tesseract", _ms(t0), nota, respinto)
         out.append(riuscito)
         if on_page:
             on_page(riuscito, i, totale)

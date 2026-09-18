@@ -43,3 +43,18 @@ def test_preset_override(qapp):
     d = DialogoImpostazioni(preset_ids=["glm-ocr-q8_0", "altro"])
     d.set_preset("altro")
     assert d.valori()["preset_id"] == "altro"
+
+
+def test_contesto_filtro_default_e_valori(qapp):
+    d = DialogoImpostazioni(preset_ids=["glm-ocr-q8_0"])
+    v = d.valori()
+    assert v["lingue_filtro"] == "it"
+    assert v["soglia_righe_loop"] == 5
+    assert v["ignora_eco"] is False
+    d.lingue.setText("it,en")
+    d.soglia.setValue(9)
+    d.ignora_eco.setChecked(True)
+    v = d.valori()
+    assert v["lingue_filtro"] == "it,en"
+    assert v["soglia_righe_loop"] == 9
+    assert v["ignora_eco"] is True

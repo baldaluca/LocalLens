@@ -14,6 +14,9 @@ DEFAULTS = {
     "dpi_pdf": 300,
     "max_side_px": 2048,
     "contrasto": False,
+    "lingue_filtro": "it",
+    "soglia_righe_loop": 5,
+    "ignora_eco": False,
     "tema": "chiaro",
 }
 

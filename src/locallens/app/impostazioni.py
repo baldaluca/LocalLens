@@ -1,12 +1,14 @@
 """Sorgente modello (RF10) + avviso privacy su URL non locale (RNF1)."""
 
 from PySide6.QtWidgets import (
+    QCheckBox,
     QComboBox,
     QDialog,
     QDialogButtonBox,
     QFormLayout,
     QLabel,
     QLineEdit,
+    QSpinBox,
 )
 
 from locallens.backend.manager import is_url_privata
@@ -31,6 +33,17 @@ class DialogoImpostazioni(QDialog):
         self.preset.addItems(preset_ids)
         layout.addRow("Preset (auto se invariato)", self.preset)
 
+        self.lingue = QLineEdit("it")
+        layout.addRow("Lingue filtro (it,en)", self.lingue)
+
+        self.soglia = QSpinBox()
+        self.soglia.setRange(1, 20)
+        self.soglia.setValue(5)
+        layout.addRow("Soglia righe loop", self.soglia)
+
+        self.ignora_eco = QCheckBox("Istruzioni stampate nella sorgente")
+        layout.addRow("Ignora eco prompt", self.ignora_eco)
+
         self.avviso = QLabel(
             "Attenzione privacy: l'URL non punta alla rete locale, "
             "immagini e testo lasceranno questa macchina."
@@ -53,6 +66,11 @@ class DialogoImpostazioni(QDialog):
     def set_preset(self, preset_id: str) -> None:
         self.preset.setCurrentText(preset_id)
 
+    def set_contesto(self, lingue: str = "it", soglia: int = 5, ignora_eco: bool = False) -> None:
+        self.lingue.setText(lingue)
+        self.soglia.setValue(soglia)
+        self.ignora_eco.setChecked(ignora_eco)
+
     def _aggiorna_avviso(self) -> None:
         mostra = self.sorgente.currentText() == "esterno" and not is_url_privata(
             self.url.text()
@@ -64,4 +82,7 @@ class DialogoImpostazioni(QDialog):
             "sorgente": self.sorgente.currentText(),
             "url_esterno": self.url.text(),
             "preset_id": self.preset.currentText(),
+            "lingue_filtro": self.lingue.text().strip() or "it",
+            "soglia_righe_loop": self.soglia.value(),
+            "ignora_eco": self.ignora_eco.isChecked(),
         }

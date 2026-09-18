@@ -228,6 +228,9 @@ def test_impostazioni_ricostruiscono_engine(qapp, monkeypatch, tmp_path):
         def set_preset(self, valore):
             pass
 
+        def set_contesto(self, lingue="it", soglia=5, ignora_eco=False):
+            pass
+
         def exec(self):
             return True
 

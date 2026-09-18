@@ -3,6 +3,20 @@
 from locallens.backend.manager import is_url_privata
 
 
+def _contesto(conf) -> dict:
+    """Contesto filtro anti-self-hit: stringa TOML "it,en" → tupla per crea_engine."""
+    lingue = tuple(
+        l.strip()
+        for l in str(conf.get("lingue_filtro", "it")).split(",")
+        if l.strip()
+    ) or ("it",)
+    return {
+        "lingue_attese": lingue,
+        "soglia_righe_loop": int(conf.get("soglia_righe_loop", 5)),
+        "ignora_eco": bool(conf.get("ignora_eco", False)),
+    }
+
+
 def costruisci(conf, info, preset, gestore=None, crea=None, solo_cpu=None, pesi=None):
     """(engine, stato, banner). Dipendenze iniettabili; default = reali."""
     from locallens.core.orchestrator import crea_engine as _crea
@@ -23,6 +37,7 @@ def costruisci(conf, info, preset, gestore=None, crea=None, solo_cpu=None, pesi=
             motore="esterno",
             max_side=conf.get("max_side_px", 2048),
             contrasto=conf.get("contrasto", False),
+            **_contesto(conf),
         )
         return engine, f"esterno • {url}", banner
 
@@ -68,6 +83,7 @@ def costruisci(conf, info, preset, gestore=None, crea=None, solo_cpu=None, pesi=
             motore=info.candidati[0],
             max_side=conf.get("max_side_px", 2048),
             contrasto=conf.get("contrasto", False),
+            **_contesto(conf),
         ),
         f"{info.candidati[0]} • {handle.base_url}",
         "",

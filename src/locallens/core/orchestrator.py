@@ -75,6 +75,7 @@ class OcrEngine:
                         motore_usato=e.motore_usato,
                         chars=len(e.testo),
                         nota=e.nota,
+                        extra={"scartato": e.scartato} if e.scartato else None,
                     )
 
         pagine = elabora_pagine(

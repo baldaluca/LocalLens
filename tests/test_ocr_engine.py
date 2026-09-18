@@ -82,3 +82,25 @@ def test_cancel_su_job_fatto_noop_e_sconosciuto_errore():
         eng.cancel("inesistente")
     with pytest.raises(KeyError):
         eng.get_result("inesistente")
+
+
+def test_diario_riceve_scartato_in_extra():
+    """Il diario registra il testo VLM scartato in extra (audit fallback)."""
+    loop = "riga ripetuta identica per il loop del modello\n" * 6
+
+    def infer(pid, img):
+        return (loop, "esterno")
+
+    registrati = []
+
+    class DiarioFake:
+        def registra_pagina(self, **kw):
+            registrati.append(kw)
+
+        def chiudi(self, stato="done"):
+            pass
+
+    eng = _engine(infer=infer)
+    eng.submit_document([b"a"], diario=DiarioFake())
+    assert registrati[0]["motore_usato"] == "cpu-tesseract"
+    assert registrati[0]["extra"]["scartato"] == loop

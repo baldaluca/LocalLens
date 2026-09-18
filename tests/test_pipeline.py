@@ -396,3 +396,68 @@ def test_output_vuoto_mantiene_retry():
     out = elabora_pagine([b"img1"], infer=infer, fallback=fallback, sorgente="bundlato")
     assert out[0].testo == "ok-dopo-retry"
     assert len(chiamate) == 2
+
+
+def test_fallback_dopo_anomalia_conserva_testo_scartato():
+    """Audit: il testo VLM scartato resta sull'Estrazione per il diario."""
+    loop = "riga ripetuta identica per il loop del modello\n" * 6
+
+    def infer(pagina_id, _img):
+        return (loop, "esterno")
+
+    def fallback(pagina_id, _img):
+        return "recuperato-tesseract"
+
+    out = elabora_pagine([b"img1"], infer=infer, fallback=fallback, sorgente="bundlato")
+    assert out[0].motore_usato == "cpu-tesseract"
+    assert out[0].scartato == loop
+
+
+def test_testo_scartato_troncato_a_2000():
+    """Il diario non si gonfia: scartato troncato a 2000 char."""
+    loop = "riga ripetuta identica per il loop del modello\n" * 200
+
+    def infer(pagina_id, _img):
+        return (loop, "esterno")
+
+    def fallback(pagina_id, _img):
+        return "recuperato-tesseract"
+
+    out = elabora_pagine([b"img1"], infer=infer, fallback=fallback, sorgente="bundlato")
+    assert len(out[0].scartato) == 2000
+    assert loop.startswith(out[0].scartato)
+
+
+def test_successo_non_ha_scartato():
+    def infer(pagina_id, _img):
+        return ("testo pulito di trascrizione", "cuda")
+
+    def fallback(pagina_id, _img):
+        raise AssertionError("fallback non deve scattare")
+
+    out = elabora_pagine([b"img1"], infer=infer, fallback=fallback, sorgente="bundlato")
+    assert out[0].scartato is None
+
+
+def test_fallback_debole_segnalato_in_nota():
+    """Quality-gate: Tesseract quasi vuoto (ma non vuoto) → avviso in nota."""
+    def infer(pagina_id, _img):
+        raise InferenzaError("backend giu'")
+
+    def fallback(pagina_id, _img):
+        return "  ab  "
+
+    out = elabora_pagine([b"img1"], infer=infer, fallback=fallback, sorgente="bundlato")
+    assert out[0].testo == "  ab  "
+    assert "fallback debole" in (out[0].nota or "")
+
+
+def test_fallback_sostanzioso_nessun_avviso():
+    def infer(pagina_id, _img):
+        raise InferenzaError("backend giu'")
+
+    def fallback(pagina_id, _img):
+        return "una trascrizione decente di parecchie parole vere"
+
+    out = elabora_pagine([b"img1"], infer=infer, fallback=fallback, sorgente="bundlato")
+    assert "debole" not in (out[0].nota or "")

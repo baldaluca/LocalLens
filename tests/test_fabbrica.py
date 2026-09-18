@@ -79,3 +79,39 @@ def test_bundlato_fallisce_cpu():
     )
     assert eng == "cpu"
     assert "bins assenti" in banner
+
+
+def test_esterno_trasmette_contesto_filtro():
+    preset = load_preset("presets/glm-ocr-q8_0.toml")
+    conf = {
+        "sorgente": "esterno",
+        "url_esterno": "http://127.0.0.1:8011",
+        "lingue_filtro": "it,en",
+        "soglia_righe_loop": 9,
+        "ignora_eco": True,
+    }
+    viste = {}
+
+    def crea(url, p, motore, **k):
+        viste.update(k)
+        return "engine"
+
+    costruisci(conf, _info(), preset, crea=crea)
+    assert viste["lingue_attese"] == ("it", "en")
+    assert viste["soglia_righe_loop"] == 9
+    assert viste["ignora_eco"] is True
+
+
+def test_contesto_default_senza_chiavi():
+    preset = load_preset("presets/glm-ocr-q8_0.toml")
+    conf = {"sorgente": "esterno", "url_esterno": "http://127.0.0.1:8011"}
+    viste = {}
+
+    def crea(url, p, motore, **k):
+        viste.update(k)
+        return "engine"
+
+    costruisci(conf, _info(), preset, crea=crea)
+    assert viste["lingue_attese"] == ("it",)
+    assert viste["soglia_righe_loop"] == 5
+    assert viste["ignora_eco"] is False
