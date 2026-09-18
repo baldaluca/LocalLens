@@ -297,20 +297,15 @@ class MainWindow(QMainWindow):
             self.mostra_banner(t(self._lingua(), "banner_errore", dettaglio=e))
 
     def _preset_corrente(self):
-        from locallens.__main__ import _preset_da_conf
-        return _preset_da_conf(self.conf)
+        from locallens.config.presets import preset_da_conf
+        return preset_da_conf(self.conf)
 
     def _gpu_locale_disponibile(self) -> bool:
-        from locallens.core.fabbrica import disponibilita_gpu_locale
-        from locallens.hwdetect.detector import detect
-        try:
-            return disponibilita_gpu_locale(detect(), self._preset_corrente())
-        except Exception:
-            return False
+        from locallens.core.fabbrica import disponibilita_gpu_locale_da_conf
+        return disponibilita_gpu_locale_da_conf(self.conf, self._preset_corrente())
 
     def _impostazioni(self) -> None:
-        from locallens.core.fabbrica import normalizza_sorgente
-        from locallens.hwdetect.detector import detect
+        from locallens.core.fabbrica import normalizza_sorgente_da_conf
 
         dlg = DialogoImpostazioni(
             parent=self,
@@ -334,7 +329,7 @@ class MainWindow(QMainWindow):
         )
         if dlg.exec():
             self.conf.update(dlg.valori())
-            self.conf, avviso = normalizza_sorgente(self.conf, detect(), self._preset_corrente())
+            self.conf, avviso = normalizza_sorgente_da_conf(self.conf, self._preset_corrente())
             if avviso:
                 self.mostra_banner(avviso)
             salva_impostazioni(self.conf)

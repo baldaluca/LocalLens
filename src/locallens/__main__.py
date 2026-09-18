@@ -2,27 +2,7 @@
 
 import sys
 
-
-def _solo_cpu(motivo: str):
-    from locallens.core.errori import InferenzaError
-    from locallens.core.orchestrator import OcrEngine
-    from locallens.fallback.tesseract import estrai
-
-    def infer(pagina_id: int, png: bytes):
-        raise InferenzaError(motivo)
-
-    return OcrEngine(infer=infer, fallback=lambda p, i: estrai(i), sorgente="nessuno")
-
-
-def _preset_da_conf(conf):
-    from locallens.config.percorsi import risorsa
-    from locallens.config.presets import load_preset
-
-    pid = conf.get("preset_id", "") or "lighton-ocr-q8_0"
-    try:
-        return load_preset(str(risorsa("presets", f"{pid}.toml")))
-    except (ValueError, OSError):
-        return load_preset(str(risorsa("presets", "lighton-ocr-q8_0.toml")))
+from locallens.config.presets import preset_da_conf
 
 
 def costruisci_da_conf(conf):
@@ -31,7 +11,7 @@ def costruisci_da_conf(conf):
     from locallens.hwdetect.detector import detect
 
     info = detect()
-    preset = _preset_da_conf(conf)
+    preset = preset_da_conf(conf)
     conf = dict(conf, preset_id=preset.id)
     conf, avviso = normalizza_sorgente(conf, info, preset)
     engine, stato, banner = costruisci(conf, info, preset)

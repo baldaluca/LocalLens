@@ -49,7 +49,7 @@ tools/fetch-binaries.py  → download asset pinnati in bins/<os>/<backend>/ (app
 locallens.spec           → PyInstaller onedir: app + presets + bins/<os>
 ```
 
-Vietato: `app → backend`, `app → hwdetect`, template/prompt hardcoded in `core`.
+Vietato: `app → backend`, `app → hwdetect`, `app → __main__`; `core → __main__`. Template/prompt hardcoded in `core` vietati.
 
 ## 2. Contratti
 

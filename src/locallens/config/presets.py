@@ -46,6 +46,17 @@ def load_preset(path: str) -> PresetModello:
     )
 
 
+def preset_da_conf(conf) -> PresetModello:
+    """Preset da conf['preset_id'], con fallback al default shipped."""
+    from locallens.config.percorsi import risorsa
+
+    pid = conf.get("preset_id", "") or "lighton-ocr-q8_0"
+    try:
+        return load_preset(str(risorsa("presets", f"{pid}.toml")))
+    except (ValueError, OSError):
+        return load_preset(str(risorsa("presets", "lighton-ocr-q8_0.toml")))
+
+
 def seleziona_preset(vram_mb: int | None, candidati: list[str]) -> str:
     """Scelta preset per VRAM. vram None = CPU-only: ritorna default shipped (nessun modello GPU usato)."""
     if not candidati:

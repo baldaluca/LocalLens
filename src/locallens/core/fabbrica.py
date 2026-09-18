@@ -4,6 +4,7 @@ import sys
 
 from locallens.app.lingua import t
 from locallens.backend.manager import is_url_privata
+from locallens.core.orchestrator import solo_cpu as _solo_cpu_default
 
 
 def _contesto(conf) -> dict:
@@ -29,6 +30,23 @@ def disponibilita_gpu_locale(info, preset, piattaforma=None, bins_root=None, cac
         return False
     binario = resolve_binary(piattaforma or sys.platform, info.candidati[0], bins_root)
     return binario.is_file() and snapshot_completo(preset, cache_root) is not None
+
+
+def disponibilita_gpu_locale_da_conf(conf, preset, **rileva_kw) -> bool:
+    """True se la GPU locale è usabile per conf/preset. Mai eccezioni: False in caso di errore."""
+    try:
+        from locallens.hwdetect.detector import detect
+
+        return disponibilita_gpu_locale(detect(), preset, **rileva_kw)
+    except Exception:  # noqa: BLE001 — sonda: qualunque errore di rilevamento → non disponibile
+        return False
+
+
+def normalizza_sorgente_da_conf(conf, preset, **rileva_kw) -> tuple[dict, str | None]:
+    """normalizza_sorgente con detect() interno (per app: niente hwdetect diretto)."""
+    from locallens.hwdetect.detector import detect
+
+    return normalizza_sorgente(conf, detect(), preset, **rileva_kw)
 
 
 def normalizza_sorgente(conf, info, preset, **rileva_kw) -> tuple[dict, str | None]:
@@ -83,9 +101,7 @@ def costruisci(conf, info, preset, gestore=None, crea=None, solo_cpu=None, pesi=
 
     if sorgente == "nessuno":
         if solo_cpu is None:
-            from locallens.__main__ import _solo_cpu as _reale
-
-            solo_cpu = _reale
+            solo_cpu = _solo_cpu_default
         return (
             solo_cpu(t(lingua, "motivo_solo_tesseract")),
             t(lingua, "stato_nessuno"),
@@ -108,8 +124,6 @@ def costruisci(conf, info, preset, gestore=None, crea=None, solo_cpu=None, pesi=
             "",
         )
     if solo_cpu is None:
-        from locallens.__main__ import _solo_cpu as _reale
-
-        solo_cpu = _reale
+        solo_cpu = _solo_cpu_default
     motivo = t(lingua, "motivo_gpu_non_raggiungibile", url=url)
     return solo_cpu(motivo), t(lingua, "stato_gpu_solo_cpu"), t(lingua, "banner_solo_cpu_assente", url=url)

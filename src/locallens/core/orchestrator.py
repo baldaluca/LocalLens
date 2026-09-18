@@ -117,6 +117,17 @@ class OcrEngine:
             raise KeyError(job_id) from None
 
 
+def solo_cpu(motivo: str) -> OcrEngine:
+    """Engine CPU-only: infer solleva sempre, fallback Tesseract reale."""
+    from locallens.core.errori import InferenzaError
+    from locallens.fallback.tesseract import estrai
+
+    def infer(pagina_id: int, png: bytes):
+        raise InferenzaError(motivo)
+
+    return OcrEngine(infer=infer, fallback=lambda p, i: estrai(i), sorgente="nessuno")
+
+
 def crea_engine(
     base_url: str,
     preset: PresetModello,
