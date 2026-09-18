@@ -40,7 +40,7 @@ VOCI_SORGENTE = (("GPU locale", "bundlato"), ("esterno", "esterno"), ("nessuno",
 
 
 class DialogoImpostazioni(QDialog):
-    def __init__(self, preset_ids: list[str], parent=None, tema: str = "chiaro", gpu_locale_disponibile: bool = True) -> None:
+    def __init__(self, parent=None, tema: str = "chiaro", gpu_locale_disponibile: bool = True) -> None:
         super().__init__(parent)
         self.setWindowTitle("Impostazioni LocalLens")
         self.setStyleSheet(qss(tema))  # come la finestra principale (stessi token)
@@ -55,14 +55,10 @@ class DialogoImpostazioni(QDialog):
         self.sorgente.currentTextChanged.connect(lambda _: self._aggiorna_viste())
         layout.addRow("Sorgente modello", self.sorgente)
 
+        self.etichetta_url = QLabel("URL server esterno")
         self.url = QLineEdit("http://127.0.0.1:8011")
         self.url.textChanged.connect(lambda _: self._aggiorna_avviso())
-        layout.addRow("URL server esterno", self.url)
-
-        self.etichetta_preset = QLabel("Preset (auto se invariato)")
-        self.preset = QComboBox()
-        self.preset.addItems(preset_ids)
-        layout.addRow(self.etichetta_preset, self.preset)
+        layout.addRow(self.etichetta_url, self.url)
 
         self.etichetta_token = QLabel("Token cloud")
         self.token = QLineEdit()
@@ -123,9 +119,6 @@ class DialogoImpostazioni(QDialog):
                 self.sorgente.setCurrentText(etichetta)
                 return
 
-    def set_preset(self, preset_id: str) -> None:
-        self.preset.setCurrentText(preset_id)
-
     def set_cloud(self, token: str = "", modello: str = "", prompt: str = "") -> None:
         self.token.setText(token)
         self.modello.setText(modello)
@@ -160,16 +153,18 @@ class DialogoImpostazioni(QDialog):
         return bottone, spiega
 
     def _aggiorna_viste(self) -> None:
-        """Esterno = cloud tutto a mano (niente preset); altre = preset, niente cloud."""
-        cloud = self._id_corrente() == "esterno"
-        self.etichetta_preset.setVisible(not cloud)
-        self.preset.setVisible(not cloud)
+        """Esterno = URL+cloud; nessuno = niente URL né cloud; altre = solo URL."""
+        ident = self._id_corrente()
+        mostra_url = ident != "nessuno"
+        mostra_cloud = ident == "esterno"
+        self.etichetta_url.setVisible(mostra_url)
+        self.url.setVisible(mostra_url)
         for w in (
             self.etichetta_token, self.token,
             self.etichetta_modello, self.modello,
             self.etichetta_prompt, self.prompt,
         ):
-            w.setVisible(cloud)
+            w.setVisible(mostra_cloud)
 
     def _id_corrente(self) -> str:
         scelta = self.sorgente.currentText()
@@ -187,7 +182,6 @@ class DialogoImpostazioni(QDialog):
         return {
             "sorgente": ident,
             "url_esterno": self.url.text(),
-            "preset_id": self.preset.currentText(),
             "token_esterno": self.token.text().strip(),
             "modello_esterno": self.modello.text().strip(),
             "prompt_esterno": self.prompt.toPlainText().strip(),

@@ -115,13 +115,13 @@ def test_tempo_breve_ore_umane():
     assert "Apri un Documento" in TESTO_VUOTO
 
 
-def test_intestazione_mostra_sorgente_e_preset(qapp):
+def test_intestazione_mostra_modello_cloud(qapp):
     w = MainWindow()
-    w.conf = {"sorgente": "esterno", "url_esterno": "", "preset_id": "lighton-ocr-q8_0"}
+    w.conf = {"sorgente": "esterno", "url_esterno": "", "modello_esterno": "vision-x", "preset_id": "lighton-ocr-q8_0"}
     w.aggiorna_intestazione()
     assert w.titolo.text() == "LocalLens"
-    assert "esterno" in w.pill.text()
-    assert "lighton-ocr-q8_0" in w.pill.text()
+    assert "vision-x" in w.pill.text()
+    assert "lighton-ocr-q8_0" not in w.pill.text()
 
 
 def test_stato_vuoto_e_bottoni_disabilitati(qapp):
@@ -205,21 +205,13 @@ def test_pulsante_incolla(qapp):
     assert w.lista.count() == 1
 
 
-def test_preset_ids_elenca_tutti_gli_shipped(qapp):
-    w = MainWindow()
-    w.conf = {"sorgente": "esterno", "url_esterno": "", "preset_id": "glm-ocr-q8_0"}
-    ids = w._preset_ids_disponibili()
-    assert "lighton-ocr-q8_0" in ids
-    assert "glm-ocr-q8_0" in ids
-
-
 def test_impostazioni_ricostruiscono_engine(qapp, monkeypatch, tmp_path):
     from locallens.app import finestra as mod_finestra
 
     viste = {}
 
     class DialogoFinto:
-        def __init__(self, preset_ids=None, parent=None, tema="chiaro", gpu_locale_disponibile=True, **k):
+        def __init__(self, parent=None, tema="chiaro", gpu_locale_disponibile=True, **k):
             self.url = type("U", (), {"setText": lambda self, t: None})()
 
         def set_sorgente(self, valore):
@@ -272,6 +264,7 @@ def test_pill_mostra_gpu_locale(qapp):
 
     assert ETICHETTE_SORGENTE["bundlato"] == "GPU locale"
     w = MainWindow()
-    w.conf.update({"sorgente": "bundlato", "preset_id": "x"})
+    w.conf.update({"sorgente": "bundlato", "url_esterno": "http://127.0.0.1:10000"})
     w.aggiorna_intestazione()
     assert "GPU locale" in w.pill.text()
+    assert "10000" in w.pill.text()

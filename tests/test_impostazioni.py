@@ -16,13 +16,13 @@ def qapp():
 
 
 def test_default_bundlato_senza_avviso(qapp):
-    d = DialogoImpostazioni(preset_ids=["glm-ocr-q8_0"])
+    d = DialogoImpostazioni()
     assert d.valori()["sorgente"] == "bundlato"
     assert d.avviso.isHidden()
 
 
 def test_url_esterna_pubblica_mostra_avviso(qapp):
-    d = DialogoImpostazioni(preset_ids=["glm-ocr-q8_0"])
+    d = DialogoImpostazioni()
     d.set_sorgente("esterno")
     d.url.setText("http://203.0.113.10:8011")
     d._aggiorna_avviso()
@@ -32,21 +32,16 @@ def test_url_esterna_pubblica_mostra_avviso(qapp):
 
 
 def test_url_locale_nessun_avviso(qapp):
-    d = DialogoImpostazioni(preset_ids=["glm-ocr-q8_0"])
+    d = DialogoImpostazioni()
     d.set_sorgente("esterno")
     d.url.setText("http://127.0.0.1:8011")
     d._aggiorna_avviso()
     assert d.avviso.isHidden()
 
 
-def test_preset_override(qapp):
-    d = DialogoImpostazioni(preset_ids=["glm-ocr-q8_0", "altro"])
-    d.set_preset("altro")
-    assert d.valori()["preset_id"] == "altro"
-
 
 def test_contesto_filtro_default_e_valori(qapp):
-    d = DialogoImpostazioni(preset_ids=["glm-ocr-q8_0"])
+    d = DialogoImpostazioni()
     v = d.valori()
     assert v["lingue_filtro"] == "it"
     assert v["soglia_righe_loop"] == 5
@@ -63,9 +58,9 @@ def test_contesto_filtro_default_e_valori(qapp):
 def test_dialogo_applica_tema(qapp):
     from locallens.app.tema import TEMI
 
-    d = DialogoImpostazioni(preset_ids=["glm-ocr-q8_0"], tema="scuro")
+    d = DialogoImpostazioni(tema="scuro")
     assert TEMI["scuro"]["background"] in d.styleSheet()
-    d2 = DialogoImpostazioni(preset_ids=["glm-ocr-q8_0"])
+    d2 = DialogoImpostazioni()
     assert TEMI["chiaro"]["background"] in d2.styleSheet()
 
 
@@ -73,13 +68,13 @@ def test_dialogo_tema_ignoto_errore(qapp):
     import pytest
 
     with pytest.raises(ValueError):
-        DialogoImpostazioni(preset_ids=["glm-ocr-q8_0"], tema="arcobaleno")
+        DialogoImpostazioni(tema="arcobaleno")
 
 
 def test_aiuto_whats_this_sulle_impostazioni_filtro(qapp):
     from PySide6.QtCore import Qt
 
-    d = DialogoImpostazioni(preset_ids=["glm-ocr-q8_0"])
+    d = DialogoImpostazioni()
     assert d.windowFlags() & Qt.WindowContextHelpButtonHint
     for campo in (d.lingue, d.soglia, d.ignora_eco):
         assert campo.whatsThis().strip() != ""
@@ -87,7 +82,7 @@ def test_aiuto_whats_this_sulle_impostazioni_filtro(qapp):
 
 def test_aiuto_per_riga_con_bottone_punto_domanda(qapp):
     """Ogni voce filtro ha un '?' cliccabile che espande la spiegazione."""
-    d = DialogoImpostazioni(preset_ids=["glm-ocr-q8_0"])
+    d = DialogoImpostazioni()
     for campo, attr in ((d.lingue, "aiuto_lingue"), (d.soglia, "aiuto_soglia"), (d.ignora_eco, "aiuto_eco")):
         bottone = getattr(d, attr + "_btn", None)
         spiega = getattr(d, attr, None)
@@ -102,29 +97,28 @@ def test_aiuto_per_riga_con_bottone_punto_domanda(qapp):
 
 def test_bottone_aiuto_testo_visibile(qapp):
     """Il '?' non deve restare schiacciato dal padding: regola dedicata nel foglio."""
-    d = DialogoImpostazioni(preset_ids=["glm-ocr-q8_0"])
+    d = DialogoImpostazioni()
     assert d.aiuto_lingue_btn.property("aiuto") is True
     assert 'aiuto="true"' in d.styleSheet()
 
 
 def test_label_gpu_locale_e_flag(qapp):
-    d = DialogoImpostazioni(preset_ids=["glm-ocr-q8_0"])
+    d = DialogoImpostazioni()
     assert d.sorgente.itemText(0) == "GPU locale"
     assert d.valori()["sorgente"] == "bundlato"
-    d2 = DialogoImpostazioni(preset_ids=["glm-ocr-q8_0"], gpu_locale_disponibile=False)
+    d2 = DialogoImpostazioni(gpu_locale_disponibile=False)
     voci = [d2.sorgente.itemText(i) for i in range(d2.sorgente.count())]
     assert voci == ["esterno", "nessuno"]
     d2.set_sorgente("esterno")
     assert d2.valori()["sorgente"] == "esterno"
 
 
-def test_esterno_mostra_cloud_e_nasconde_preset(qapp):
-    d = DialogoImpostazioni(preset_ids=["glm-ocr-q8_0"])
-    assert not d.preset.isHidden()
+def test_esterno_mostra_cloud(qapp):
+    d = DialogoImpostazioni()
+    assert not d.url.isHidden()
     assert d.token.isHidden() and d.modello.isHidden() and d.prompt.isHidden()
     d.set_sorgente("esterno")
-    assert d.etichetta_preset.isHidden()
-    assert d.preset.isHidden()
+    assert not d.url.isHidden()
     assert not d.token.isHidden()
     assert not d.modello.isHidden()
     assert not d.prompt.isHidden()
@@ -135,6 +129,17 @@ def test_esterno_mostra_cloud_e_nasconde_preset(qapp):
     assert v["token_esterno"] == "tk"
     assert v["modello_esterno"] == "vision-x"
     assert v["prompt_esterno"] == "Leggi."
+    assert "preset_id" not in v
     d.set_sorgente("bundlato")
-    assert not d.preset.isHidden()
+    assert not d.url.isHidden()
     assert d.token.isHidden()
+
+
+def test_nessuno_nasconde_url_e_cloud(qapp):
+    d = DialogoImpostazioni()
+    d.set_sorgente("nessuno")
+    assert d.url.isHidden()
+    assert d.token.isHidden() and d.modello.isHidden() and d.prompt.isHidden()
+    d.set_sorgente("esterno")
+    assert not d.url.isHidden()
+    assert not d.token.isHidden()

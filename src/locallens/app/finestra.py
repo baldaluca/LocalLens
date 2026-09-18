@@ -242,20 +242,6 @@ class MainWindow(QMainWindow):
         except Exception as e:  # noqa: BLE001 — display assente ecc: banner, mai crash
             self.mostra_banner(f"Errore: {e}")
 
-    def _preset_ids_disponibili(self) -> list[str]:
-        """Tutti i PresetModello (shipped + utente), col corrente garantito."""
-        from locallens.config.percorsi import risorsa
-        from locallens.config.presets import elenco_preset
-        from locallens.config.settings import percorso_config
-
-        ids = elenco_preset(
-            [risorsa("presets"), percorso_config().parent / "presets"]
-        )
-        corrente = self.conf.get("preset_id", "") or "lighton-ocr-q8_0"
-        if corrente not in ids:
-            ids = [corrente, *ids]
-        return ids
-
     def _preset_corrente(self):
         from locallens.__main__ import _preset_da_conf
         return _preset_da_conf(self.conf)
@@ -273,13 +259,11 @@ class MainWindow(QMainWindow):
         from locallens.hwdetect.detector import detect
 
         dlg = DialogoImpostazioni(
-            preset_ids=self._preset_ids_disponibili(),
             parent=self,
             tema=self.tema_corrente,
             gpu_locale_disponibile=self._gpu_locale_disponibile(),
         )
         dlg.set_sorgente(self.conf.get("sorgente", "bundlato"))
-        dlg.set_preset(self.conf.get("preset_id", "") or "lighton-ocr-q8_0")
         dlg.url.setText(self.conf.get("url_esterno", ""))
         dlg.set_cloud(
             self.conf.get("token_esterno", ""),
@@ -403,9 +387,14 @@ class MainWindow(QMainWindow):
         self._aggiorna_bottoni()
 
     def aggiorna_intestazione(self) -> None:
-        """Pill motore in linguaggio umano: '● esterno • lighton-ocr-q8_0'."""
+        """Pill motore in linguaggio umano: '● GPU locale • http://...'."""
         sorgente = self.conf.get("sorgente", "bundlato")
-        preset = self.conf.get("preset_id", "") or "—"
+        if sorgente == "bundlato":
+            dettaglio = self.conf.get("url_esterno", "") or "—"
+        elif sorgente == "esterno":
+            dettaglio = self.conf.get("modello_esterno", "") or self.conf.get("preset_id", "") or "—"
+        else:
+            dettaglio = "solo CPU"
         colori = {
             "esterno": "success",
             "bundlato": "success",
@@ -415,7 +404,7 @@ class MainWindow(QMainWindow):
 
         t = TEMI[self.tema_corrente]
         colore = t[colori.get(sorgente, "muted")]
-        self.pill.setText(f"<span style='color:{colore}'>●</span> {ETICHETTE_SORGENTE.get(sorgente, sorgente)} • {preset}")
+        self.pill.setText(f"<span style='color:{colore}'>●</span> {ETICHETTE_SORGENTE.get(sorgente, sorgente)} • {dettaglio}")
 
     def _aggiorna_bottoni(self) -> None:
         ha_testo = bool(self.testo.toPlainText().strip()) and self.testo.toPlainText() != TESTO_VUOTO
