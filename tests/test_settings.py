@@ -30,3 +30,16 @@ def test_roundtrip(tmp_path):
 
 def test_file_mancante_default(tmp_path):
     assert carica(path=tmp_path / "no.toml") == DEFAULTS
+
+
+def test_roundtrip_cloud(tmp_path):
+    from locallens.config.settings import DEFAULTS, carica, salva
+
+    conf = {
+        "sorgente": "esterno",
+        "token_esterno": "tk",
+        "modello_esterno": "vision-x",
+        "prompt_esterno": "Leggi.",
+    }
+    salva(conf, path=tmp_path / "c.toml")
+    assert carica(path=tmp_path / "c.toml") == {**DEFAULTS, **conf}

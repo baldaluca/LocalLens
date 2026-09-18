@@ -60,18 +60,18 @@ class DialogoImpostazioni(QDialog):
         self.url.textChanged.connect(lambda _: self._aggiorna_avviso())
         layout.addRow(self.etichetta_url, self.url)
 
-        self.etichetta_token = QLabel("Token cloud")
+        self.etichetta_token = QLabel("Token API")
         self.token = QLineEdit()
         self.token.setEchoMode(QLineEdit.EchoMode.Password)
         self.token.setPlaceholderText("sk-...")
         layout.addRow(self.etichetta_token, self.token)
 
-        self.etichetta_modello = QLabel("Modello cloud")
+        self.etichetta_modello = QLabel("Modello")
         self.modello = QLineEdit()
         self.modello.setPlaceholderText("es. gpt-4o")
         layout.addRow(self.etichetta_modello, self.modello)
 
-        self.etichetta_prompt = QLabel("Prompt cloud")
+        self.etichetta_prompt = QLabel("Prompt")
         self.prompt = QPlainTextEdit("Transcribe the document text exactly. No commentary.")
         self.prompt.setFixedHeight(60)
         layout.addRow(self.etichetta_prompt, self.prompt)

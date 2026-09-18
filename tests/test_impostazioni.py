@@ -143,3 +143,17 @@ def test_nessuno_nasconde_url_e_cloud(qapp):
     d.set_sorgente("esterno")
     assert not d.url.isHidden()
     assert not d.token.isHidden()
+
+
+def test_campi_cloud_sopravvivono_ai_cambi_opzione(qapp):
+    d = DialogoImpostazioni()
+    d.set_sorgente("esterno")
+    d.token.setText("tk")
+    d.modello.setText("vision-x")
+    d.prompt.setPlainText("Leggi.")
+    d.set_sorgente("nessuno")
+    d.set_sorgente("bundlato")
+    d.set_sorgente("esterno")
+    assert d.token.text() == "tk"
+    assert d.modello.text() == "vision-x"
+    assert d.prompt.toPlainText() == "Leggi."
