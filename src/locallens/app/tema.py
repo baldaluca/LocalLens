@@ -80,6 +80,12 @@ QSplitter::handle:horizontal {{ width: 6px; }}
 QStatusBar {{ background: {t['surface']}; color: {t['muted']}; }}
 QLineEdit, QComboBox, QSpinBox {{ background: {t['input_bg']}; color: {t['foreground']};
   border: 1px solid {t['border']}; border-radius: 8px; padding: 6px 10px; }}
+QComboBox QAbstractItemView {{ background: {t['surface']}; color: {t['foreground']};
+  selection-background-color: {t['primary']}; selection-color: {t['on_primary']};
+  border: 1px solid {t['border']}; }}
+QSpinBox::up-button, QSpinBox::down-button {{ background: {t['surface']};
+  border: 1px solid {t['border']}; }}
+QLabel#suggerimento {{ color: {t['muted']}; font-size: 12px; }}
 QCheckBox {{ color: {t['foreground']}; spacing: 8px; }}
 QLabel#avviso {{ color: #DC2626; }}
 """

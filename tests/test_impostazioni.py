@@ -83,3 +83,18 @@ def test_aiuto_whats_this_sulle_impostazioni_filtro(qapp):
     assert d.windowFlags() & Qt.WindowContextHelpButtonHint
     for campo in (d.lingue, d.soglia, d.ignora_eco):
         assert campo.whatsThis().strip() != ""
+
+
+def test_aiuto_per_riga_con_bottone_punto_domanda(qapp):
+    """Ogni voce filtro ha un '?' cliccabile che espande la spiegazione."""
+    d = DialogoImpostazioni(preset_ids=["glm-ocr-q8_0"])
+    for campo, attr in ((d.lingue, "aiuto_lingue"), (d.soglia, "aiuto_soglia"), (d.ignora_eco, "aiuto_eco")):
+        bottone = getattr(d, attr + "_btn", None)
+        spiega = getattr(d, attr, None)
+        assert bottone is not None and bottone.text() == "?"
+        assert spiega is not None and spiega.text().strip() != ""
+        assert spiega.isHidden()
+        bottone.click()
+        assert not spiega.isHidden()
+        bottone.click()
+        assert spiega.isHidden()

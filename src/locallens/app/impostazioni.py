@@ -7,13 +7,32 @@ from PySide6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
     QFormLayout,
+    QHBoxLayout,
     QLabel,
     QLineEdit,
+    QPushButton,
     QSpinBox,
+    QWidget,
 )
 
 from locallens.app.tema import qss
 from locallens.backend.manager import is_url_privata
+
+_AIUTI = {
+    "lingue": (
+        "Lingue ammesse nel testo trascritto, separate da virgola (es. it,en). "
+        "Una Pagina scritta in altre lingue viene scartata e riprocessata con Tesseract."
+    ),
+    "soglia": (
+        "Numero minimo di righe identiche oltre il quale l'output del modello "
+        "è considerato un loop degenere. Alzalo su Documenti legittimamente "
+        "ripetitivi (verbali, elenchi)."
+    ),
+    "eco": (
+        "Attivalo se le istruzioni di trascrizione sono stampate nel Documento: "
+        "evita che la loro presenza faccia scartare una trascrizione valida."
+    ),
+}
 
 
 class DialogoImpostazioni(QDialog):
@@ -38,28 +57,24 @@ class DialogoImpostazioni(QDialog):
         layout.addRow("Preset (auto se invariato)", self.preset)
 
         self.lingue = QLineEdit("it")
-        self.lingue.setWhatsThis(
-            "Lingue ammesse nel testo trascritto, separate da virgola (es. it,en). "
-            "Una Pagina scritta in altre lingue viene scartata e riprocessata con Tesseract."
+        self.lingue.setWhatsThis(_AIUTI["lingue"])
+        self.aiuto_lingue_btn, self.aiuto_lingue = self._riga_aiuto(
+            layout, "Lingue filtro (it,en)", self.lingue, "lingue"
         )
-        layout.addRow("Lingue filtro (it,en)", self.lingue)
 
         self.soglia = QSpinBox()
         self.soglia.setRange(1, 20)
         self.soglia.setValue(5)
-        self.soglia.setWhatsThis(
-            "Numero minimo di righe identiche oltre il quale l'output del modello "
-            "è considerato un loop degenere. Alzalo su Documenti legittimamente "
-            "ripetitivi (verbali, elenchi)."
+        self.soglia.setWhatsThis(_AIUTI["soglia"])
+        self.aiuto_soglia_btn, self.aiuto_soglia = self._riga_aiuto(
+            layout, "Soglia righe loop", self.soglia, "soglia"
         )
-        layout.addRow("Soglia righe loop", self.soglia)
 
         self.ignora_eco = QCheckBox("Istruzioni stampate nella sorgente")
-        self.ignora_eco.setWhatsThis(
-            "Attivalo se le istruzioni di trascrizione sono stampate nel Documento: "
-            "evita che la loro presenza faccia scartare una trascrizione valida."
+        self.ignora_eco.setWhatsThis(_AIUTI["eco"])
+        self.aiuto_eco_btn, self.aiuto_eco = self._riga_aiuto(
+            layout, "Ignora eco prompt", self.ignora_eco, "eco"
         )
-        layout.addRow("Ignora eco prompt", self.ignora_eco)
 
         self.avviso = QLabel(
             "Attenzione privacy: l'URL non punta alla rete locale, "
@@ -87,6 +102,27 @@ class DialogoImpostazioni(QDialog):
         self.lingue.setText(lingue)
         self.soglia.setValue(soglia)
         self.ignora_eco.setChecked(ignora_eco)
+
+    @staticmethod
+    def _riga_aiuto(layout, etichetta: str, campo, chiave: str):
+        """Riga campo + '?' che espande la spiegazione sotto (collassata di default)."""
+        contenitore = QWidget()
+        riga = QHBoxLayout(contenitore)
+        riga.setContentsMargins(0, 0, 0, 0)
+        riga.addWidget(campo)
+        bottone = QPushButton("?")
+        bottone.setFixedWidth(32)
+        bottone.setProperty("secondario", True)
+        bottone.setToolTip("Mostra la spiegazione")
+        spiega = QLabel(_AIUTI[chiave])
+        spiega.setObjectName("suggerimento")
+        spiega.setWordWrap(True)
+        spiega.hide()
+        bottone.clicked.connect(lambda: spiega.setVisible(spiega.isHidden()))
+        riga.addWidget(bottone)
+        layout.addRow(etichetta, contenitore)
+        layout.addRow(spiega)
+        return bottone, spiega
 
     def _aggiorna_avviso(self) -> None:
         mostra = self.sorgente.currentText() == "esterno" and not is_url_privata(

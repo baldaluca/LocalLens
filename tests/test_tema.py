@@ -51,3 +51,12 @@ def test_toggle_sulla_finestra(qapp):
     w.cambia_tema()
     assert w.tema_corrente == "scuro"
     assert "#2563EB" in w.styleSheet() or "background" in w.styleSheet()
+
+
+def test_qss_dropdown_popup_a_tema():
+    import locallens.app.tema as tema
+
+    for nome in ("chiaro", "scuro"):
+        foglio = tema.qss(nome)
+        assert "QAbstractItemView" in foglio
+        assert tema.TEMI[nome]["surface"] in foglio
