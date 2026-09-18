@@ -41,44 +41,42 @@ def test_nessuno_solo_cpu():
     assert "solo CPU" in stato
 
 
-def test_bundlato_avvia_gestore():
+def test_bundlato_usa_url_se_health_ok():
     preset = load_preset("presets/glm-ocr-q8_0.toml")
-    conf = {"sorgente": "bundlato"}
-    avvii = {}
+    conf = {"sorgente": "bundlato", "url_esterno": "http://127.0.0.1:10000"}
+    viste = {}
 
-    class Gestore:
-        def start(self, backend, preset=None, modello="", mmproj="", porta=8011):
-            avvii["backend"] = backend
-            from locallens.backend.manager import BackendHandle
+    def crea(url, p, motore, **k):
+        viste.update(url=url, motore=motore)
+        return "engine"
 
-            return BackendHandle(backend, "http://127.0.0.1:8011", 8011, 1)
+    def verifica(url):
+        viste["verificato"] = url
+        return True
 
-    eng, _stato, banner = costruisci(
-        conf,
-        _info(),
-        preset,
-        gestore=Gestore(),
-        crea=lambda url, p, motore, **k: (url, motore),
-        pesi=("/m/g.gguf", "/m/p.gguf"),
-    )
-    assert avvii["backend"] == "cuda"
-    assert eng == ("http://127.0.0.1:8011", "cuda")
+    eng, stato, banner = costruisci(conf, _info(), preset, crea=crea, verifica=verifica)
+    assert eng == "engine"
+    assert viste["url"] == "http://127.0.0.1:10000"
+    assert viste["verificato"] == "http://127.0.0.1:10000"
+    assert stato.startswith("GPU locale")
     assert banner == ""
 
 
-def test_bundlato_fallisce_cpu():
+def test_bundlato_solo_cpu_se_health_ko():
     preset = load_preset("presets/glm-ocr-q8_0.toml")
-    conf = {"sorgente": "bundlato"}
-
-    class GestoreKo:
-        def start(self, *a, **k):
-            raise FileNotFoundError("bins assenti")
-
-    eng, _stato, banner = costruisci(
-        conf, _info(), preset, gestore=GestoreKo(), solo_cpu=lambda m: "cpu"
+    conf = {"sorgente": "bundlato", "url_esterno": "http://127.0.0.1:10000"}
+    eng, stato, banner = costruisci(
+        conf,
+        _info(),
+        preset,
+        crea=lambda u, p, motore, **k: "engine",
+        verifica=lambda url: False,
+        solo_cpu=lambda m: f"cpu:{m}",
     )
-    assert eng == "cpu"
-    assert "bins assenti" in banner
+    assert eng == "cpu:GPU locale non raggiungibile: http://127.0.0.1:10000"
+    assert "10000" in banner
+
+
 
 
 def test_esterno_trasmette_contesto_filtro():

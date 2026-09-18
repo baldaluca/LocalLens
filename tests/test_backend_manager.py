@@ -78,3 +78,9 @@ def test_health_delega_a_verifica():
     mgr2, _, _ = _manager(health_ok=False)
     # senza start: health False invece di eccezione (UI resta usabile via CPU)
     assert mgr2.health() is False
+
+
+def test_verifica_health_ko_su_porta_chiusa():
+    from locallens.backend.manager import verifica_health
+
+    assert verifica_health("http://127.0.0.1:9", timeout=1) is False

@@ -54,6 +54,17 @@ def is_url_privata(url: str) -> bool:
     return any(ip in r for r in reti)
 
 
+def verifica_health(base_url: str, timeout: float = 2) -> bool:
+    """True se GET {base_url}/health risponde 200. Mai eccezioni."""
+    import urllib.request
+
+    try:
+        with urllib.request.urlopen(base_url.rstrip("/") + "/health", timeout=timeout) as r:
+            return r.status == 200
+    except OSError:
+        return False
+
+
 class BackendManager:
     """Gestisce il subprocess llama-server. Dipendenze iniettabili per i test."""
 
@@ -95,11 +106,7 @@ class BackendManager:
             return proc.pid
 
         def _verifica(url: str) -> bool:
-            try:
-                with urllib.request.urlopen(url + "/health", timeout=2) as r:
-                    return r.status == 200
-            except OSError:
-                return False
+            return verifica_health(url)
 
         def _uccidi(pid: int) -> None:
             import signal

@@ -40,11 +40,13 @@ def normalizza_sorgente(conf, info, preset, **rileva_kw) -> tuple[dict, str | No
     return conf, None
 
 
-def costruisci(conf, info, preset, gestore=None, crea=None, solo_cpu=None, pesi=None):
+def costruisci(conf, info, preset, gestore=None, crea=None, solo_cpu=None, pesi=None, verifica=None):
     """(engine, stato, banner). Dipendenze iniettabili; default = reali."""
+    from locallens.backend.manager import verifica_health
     from locallens.core.orchestrator import crea_engine as _crea
 
     crea = crea or _crea
+    verifica = verifica or verifica_health
     sorgente = conf.get("sorgente", "bundlato")
 
     if sorgente == "esterno":
@@ -75,39 +77,24 @@ def costruisci(conf, info, preset, gestore=None, crea=None, solo_cpu=None, pesi=
             "",
         )
 
-    # bundlato
-    if gestore is None:
-        from locallens.backend.manager import BackendManager
+    # bundlato = GPU locale: usa il server all'URL configurato, senza avviare binari.
+    url = conf.get("url_esterno", "http://127.0.0.1:8011")
+    if verifica(url):
+        return (
+            crea(
+                url,
+                preset,
+                motore="esterno",
+                max_side=conf.get("max_side_px", 2048),
+                contrasto=conf.get("contrasto", False),
+                **_contesto(conf),
+            ),
+            f"GPU locale • {url}",
+            "",
+        )
+    if solo_cpu is None:
+        from locallens.__main__ import _solo_cpu as _reale
 
-        gestore = BackendManager()
-    if pesi is None:
-        from locallens.config.pesi import risolvi_pesi
-
-        try:
-            pesi = risolvi_pesi(preset)
-        except FileNotFoundError as e:
-            if solo_cpu is None:
-                from locallens.__main__ import _solo_cpu as _reale
-
-                solo_cpu = _reale
-            return solo_cpu(str(e)), "bundlato (solo CPU)", f"Solo CPU: {e}"
-    try:
-        handle = gestore.start(info.candidati[0], preset=preset, modello=pesi[0], mmproj=pesi[1])
-    except (FileNotFoundError, RuntimeError, OSError) as e:
-        if solo_cpu is None:
-            from locallens.__main__ import _solo_cpu as _reale
-
-            solo_cpu = _reale
-        return solo_cpu(str(e)), "bundlato (solo CPU)", f"Solo CPU: {e}"
-    return (
-        crea(
-            handle.base_url,
-            preset,
-            motore=info.candidati[0],
-            max_side=conf.get("max_side_px", 2048),
-            contrasto=conf.get("contrasto", False),
-            **_contesto(conf),
-        ),
-        f"{info.candidati[0]} • {handle.base_url}",
-        "",
-    )
+        solo_cpu = _reale
+    motivo = f"GPU locale non raggiungibile: {url}"
+    return solo_cpu(motivo), "GPU locale (solo CPU)", f"Solo CPU: server assente su {url}"
