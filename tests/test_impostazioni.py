@@ -211,3 +211,18 @@ def test_riga_lingua_sempre_visibile(qapp):
     for sorg in ("bundlato", "esterno", "nessuno"):
         d.set_sorgente(sorg)
         assert not d.selettore_lingua.isHidden()
+
+
+def test_token_placeholder_tooltip_tradotti(qapp):
+    """Frizione B: il campo token spiega che vive solo in memoria (it/en)."""
+    from locallens.app.lingua import STRINGS
+
+    d_en = DialogoImpostazioni(lingua="en")
+    assert d_en.token.placeholderText() == STRINGS["en"]["token_placeholder"]
+    assert d_en.token.toolTip() == STRINGS["en"]["token_tooltip"]
+    d_en.set_cloud(token="", modello="m", prompt="p")
+    assert d_en.token.placeholderText() == STRINGS["en"]["token_placeholder"]
+    assert d_en.token.toolTip() == STRINGS["en"]["token_tooltip"]
+    d_it = DialogoImpostazioni(lingua="it")
+    assert d_it.token.placeholderText() == STRINGS["it"]["token_placeholder"]
+    assert d_it.token.toolTip() == STRINGS["it"]["token_tooltip"]

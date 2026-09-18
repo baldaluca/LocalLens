@@ -69,7 +69,8 @@ class DialogoImpostazioni(QDialog):
         self.etichetta_token = QLabel(t(lingua, "etichetta_token"))
         self.token = QLineEdit()
         self.token.setEchoMode(QLineEdit.EchoMode.Password)
-        self.token.setPlaceholderText("sk-...")
+        self.token.setPlaceholderText(t(lingua, "token_placeholder"))
+        self.token.setToolTip(t(lingua, "token_tooltip"))
         layout.addRow(self.etichetta_token, self.token)
 
         self.etichetta_modello = QLabel(t(lingua, "etichetta_modello"))
@@ -137,6 +138,8 @@ class DialogoImpostazioni(QDialog):
             self.url.setText(valore)
 
     def set_cloud(self, token: str = "", modello: str = "", prompt: str = "") -> None:
+        self.token.setPlaceholderText(t(self._lingua, "token_placeholder"))
+        self.token.setToolTip(t(self._lingua, "token_tooltip"))
         self.token.setText(token)
         self.modello.setText(modello)
         if prompt:

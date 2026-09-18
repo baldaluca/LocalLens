@@ -268,6 +268,25 @@ def test_costruisci_bundlato_ko_inglese():
     assert banner == t("en", "banner_solo_cpu_assente", url=url)
 
 
+def test_costruisci_bundlato_ko_banner_guida_avvio_manuale():
+    """Frizione A: il banner health-ko guida all'avvio manuale del server VLM."""
+    from locallens.app.lingua import t
+
+    preset = load_preset("presets/glm-ocr-q8_0.toml")
+    url = "http://127.0.0.1:10000"
+    for lingua, attesa in (("it", "Avvia il server"), ("en", "Start the server")):
+        _, _, banner = costruisci(
+            {"sorgente": "bundlato", "url_esterno": url, "lingua": lingua},
+            _info(),
+            preset,
+            crea=lambda u, p, motore, **k: "engine",
+            verifica=lambda u: False,
+            solo_cpu=lambda m: f"cpu:{m}",
+        )
+        assert banner == t(lingua, "banner_solo_cpu_assente", url=url)
+        assert attesa in banner
+
+
 def test_costruisci_bundlato_ok_stato_inglese():
     from locallens.app.lingua import t
 
