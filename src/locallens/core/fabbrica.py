@@ -99,7 +99,7 @@ def costruisci(conf, info, preset, gestore=None, crea=None, solo_cpu=None, pesi=
             crea(
                 url,
                 preset,
-                motore="esterno",
+                motore="bundlato",
                 max_side=conf.get("max_side_px", 2048),
                 contrasto=conf.get("contrasto", False),
                 **_contesto(conf),

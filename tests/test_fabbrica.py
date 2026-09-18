@@ -57,6 +57,7 @@ def test_bundlato_usa_url_se_health_ok():
     eng, stato, banner = costruisci(conf, _info(), preset, crea=crea, verifica=verifica)
     assert eng == "engine"
     assert viste["url"] == "http://127.0.0.1:10000"
+    assert viste["motore"] == "bundlato"
     assert viste["verificato"] == "http://127.0.0.1:10000"
     assert stato.startswith("GPU locale")
     assert banner == ""

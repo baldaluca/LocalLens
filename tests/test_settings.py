@@ -72,3 +72,10 @@ def test_lingua_non_valida_forza_it(tmp_path):
     path = tmp_path / "c.toml"
     path.write_text('lingua = "fr"\n', encoding="utf-8")
     assert carica(path=path)["lingua"] == "it"
+
+
+def test_roundtrip_escape_stringhe(tmp_path):
+    conf = dict(DEFAULTS)
+    conf["prompt_esterno"] = 'Trascrici "tutto" esatto \\ test\nseconda riga'
+    salva(conf, path=tmp_path / "c.toml")
+    assert carica(path=tmp_path / "c.toml")["prompt_esterno"] == conf["prompt_esterno"]

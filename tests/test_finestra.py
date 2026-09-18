@@ -298,7 +298,7 @@ def test_applica_lingua_commuta_pulsanti_en_it(qapp):
     assert w.btn_copia.text() == t("en", "btn_copia")
     assert w.btn_salva.text() == t("en", "btn_salva")
     assert w.btn_setup.text() == t("en", "btn_impostazioni")
-    assert w.btn_tema.text() == t("en", "btn_tema", nome=w.tema_corrente)
+    assert w.btn_tema.text() == t("en", "btn_tema", nome=t("en", "tema_nome_chiaro"))
     assert w.testo.toPlainText() == t("en", "testo_vuoto")
     assert w.doc.text() == t("en", "nessun_documento")
     assert w.progress.format() == t("en", "progress_formato")
@@ -307,7 +307,24 @@ def test_applica_lingua_commuta_pulsanti_en_it(qapp):
     w.applica_lingua()
     assert w.btn_apri.text() == t("it", "btn_apri")
     assert w.btn_setup.text() == t("it", "btn_impostazioni")
+    assert w.btn_tema.text() == t("it", "btn_tema", nome=t("it", "tema_nome_chiaro"))
     assert w.testo.toPlainText() == t("it", "testo_vuoto")
+
+
+def test_tema_nome_display_en_e_config_invariato(qapp):
+    from locallens.app.lingua import t
+
+    w = MainWindow()
+    w.conf["lingua"] = "en"
+    w.applica_lingua()
+    assert w.btn_tema.text() == t("en", "btn_tema", nome=t("en", "tema_nome_chiaro"))
+    w.cambia_tema()
+    assert w.tema_corrente == "scuro"
+    assert w.conf["tema"] == "scuro"
+    assert w.btn_tema.text() == t("en", "btn_tema", nome=t("en", "tema_nome_scuro"))
+    w.conf["lingua"] = "it"
+    w.applica_lingua()
+    assert w.btn_tema.text() == t("it", "btn_tema", nome=t("it", "tema_nome_scuro"))
 
 
 def test_applica_lingua_pill_inglese(qapp):

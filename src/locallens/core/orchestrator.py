@@ -14,7 +14,7 @@ from locallens.core.pipeline import elabora_pagine
 class Estrazione:
     pagina_id: int
     testo: str
-    motore_usato: str  # cuda | hip | vulkan | cpu-llama | cpu-tesseract | esterno
+    motore_usato: str  # cuda | hip | vulkan | cpu-llama | cpu-tesseract | esterno | bundlato
     ms: int = 0
 
 

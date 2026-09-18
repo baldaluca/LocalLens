@@ -50,8 +50,14 @@ def parse_chat_text(risposta: dict) -> str:
 
 
 def dialetto(url: str) -> str:
-    """'ollama' se l'URL punta a /api/chat, altrimenti 'openai'."""
-    return "ollama" if "/api/chat" in url else "openai"
+    """'ollama' se il path dell'URL è /api/chat, altrimenti 'openai'."""
+    from urllib.parse import urlparse
+
+    try:
+        percorso = urlparse(url).path.rstrip("/")
+    except Exception:
+        return "openai"
+    return "ollama" if percorso == "/api/chat" else "openai"
 
 
 def build_ollama_payload(

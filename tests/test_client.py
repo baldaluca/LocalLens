@@ -154,6 +154,14 @@ def test_dialetto_ollama_da_url():
     assert client.dialetto("http://127.0.0.1:10000/v1/chat/completions") == "openai"
 
 
+def test_dialetto_solo_path_esatto():
+    import locallens.core.client as client
+
+    assert client.dialetto("http://x/v1/chat?next=/api/chat") == "openai"
+    assert client.dialetto("http://x/api/chat/") == "ollama"
+    assert client.dialetto("non-un-url") == "openai"
+
+
 def test_payload_ollama_con_immagini_e_no_stream():
     import locallens.core.client as client
 

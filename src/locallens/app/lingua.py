@@ -64,6 +64,8 @@ STRINGS: dict[str, dict[str, str]] = {
         "etichetta_lingua": "Lingua applicazione",
         "lingua_nome_it": "Italiano",
         "lingua_nome_en": "Inglese",
+        "tema_nome_chiaro": "chiaro",
+        "tema_nome_scuro": "scuro",
     },
     "en": {
         "btn_apri": "Open file/PDF",
@@ -126,6 +128,8 @@ STRINGS: dict[str, dict[str, str]] = {
         "etichetta_lingua": "Application language",
         "lingua_nome_it": "Italian",
         "lingua_nome_en": "English",
+        "tema_nome_chiaro": "Light",
+        "tema_nome_scuro": "Dark",
     },
 }
 

@@ -40,6 +40,16 @@ _CHIAVE_SORGENTE = {
 # Alias di compatibilità (it) — il codice usa il catalogo via `t`.
 ETICHETTE_SORGENTE = {k: t("it", v) for k, v in _CHIAVE_SORGENTE.items()}
 
+_CHIAVE_TEMA_NOME = {
+    "chiaro": "tema_nome_chiaro",
+    "scuro": "tema_nome_scuro",
+}
+
+
+def nome_tema_display(lingua: str, tema: str) -> str:
+    """Nome tema solo per display: il config resta chiaro/scuro."""
+    return t(lingua, _CHIAVE_TEMA_NOME[tema])
+
 
 def tempo_breve(ms: int) -> str:
     """Durata umana per liste e separatori: '52 s', '800 ms'."""
@@ -178,7 +188,7 @@ class MainWindow(QMainWindow):
         self.btn_copia.setText(t(lingua, "btn_copia"))
         self.btn_salva.setText(t(lingua, "btn_salva"))
         self.btn_setup.setText(t(lingua, "btn_impostazioni"))
-        self.btn_tema.setText(t(lingua, "btn_tema", nome=self.tema_corrente))
+        self.btn_tema.setText(t(lingua, "btn_tema", nome=nome_tema_display(lingua, self.tema_corrente)))
         if self._correnti:
             self.mostra_estrazioni(list(self._correnti))
         else:
@@ -202,7 +212,7 @@ class MainWindow(QMainWindow):
         self.tema_corrente = nome
         self.setStyleSheet(qss(nome))
         applica_tavolozza(nome)
-        self.btn_tema.setText(t(self._lingua(), "btn_tema", nome=nome))
+        self.btn_tema.setText(t(self._lingua(), "btn_tema", nome=nome_tema_display(self._lingua(), nome)))
 
     def cambia_tema(self) -> None:
         self.set_tema("scuro" if self.tema_corrente == "chiaro" else "chiaro")

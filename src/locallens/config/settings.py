@@ -66,7 +66,8 @@ def salva(conf: dict, path: Path | None = None) -> Path:
         if chiave in SEGRET:
             continue
         if isinstance(valore, str):
-            righe.append(f'{chiave} = "{valore}"')
+            sicura = valore.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n")
+            righe.append(f'{chiave} = "{sicura}"')
         elif isinstance(valore, bool):
             righe.append(f"{chiave} = {'true' if valore else 'false'}")
         else:
