@@ -74,3 +74,15 @@ def test_dropdown_freccia_a_tema(qapp):
         assert tav.color(QPalette.ColorRole.Highlight).name() == tema.TEMI[nome]["primary"].lower()
     foglio = tema.qss("scuro")
     assert "QComboBox::drop-down" in foglio
+
+
+def test_frecce_combo_spin_disegnate_da_asset(qapp):
+    import re
+    from pathlib import Path
+
+    for nome in ("chiaro", "scuro"):
+        foglio = tema.qss(nome)
+        assert "QComboBox::down-arrow" in foglio
+        assert "QSpinBox::up-arrow" in foglio
+        for url in re.findall(r'image:\s*url\("([^"]+)"\)', foglio):
+            assert Path(url).is_file(), url

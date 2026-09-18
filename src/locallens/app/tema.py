@@ -70,6 +70,14 @@ def qss(nome: str) -> str:
         t = TEMI[nome]
     except KeyError:
         raise ValueError(f"tema ignoto: {nome} (chiaro|scuro)") from None
+    from locallens.app.icone import percorso_freccia
+
+    def url(tema_nome: str, direzione: str) -> str:
+        from pathlib import Path
+
+        return Path(percorso_freccia(tema_nome, direzione)).as_posix()
+
+    giu, su = url(nome, "giu"), url(nome, "su")
     return f"""
 QMainWindow, QDialog, QWidget#centrale {{ background: {t['background']}; font-size: 14px; }}
 QLabel {{ color: {t['foreground']}; }}
@@ -112,6 +120,9 @@ QComboBox QAbstractItemView {{ background: {t['surface']}; color: {t['foreground
 QComboBox::drop-down {{ subcontrol-origin: padding; subcontrol-position: top right;
   width: 24px; border-left: 1px solid {t['border']}; background: {t['surface']};
   border-top-right-radius: 8px; border-bottom-right-radius: 8px; }}
+QComboBox::down-arrow {{ image: url("{giu}"); width: 14px; height: 14px; }}
+QSpinBox::up-arrow {{ image: url("{su}"); width: 12px; height: 12px; }}
+QSpinBox::down-arrow {{ image: url("{giu}"); width: 12px; height: 12px; }}
 QSpinBox::up-button, QSpinBox::down-button {{ background: {t['surface']};
   border: 1px solid {t['border']}; }}
 QLabel#suggerimento {{ color: {t['muted']}; font-size: 12px; }}
