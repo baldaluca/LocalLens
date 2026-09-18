@@ -105,3 +105,14 @@ def test_bottone_aiuto_testo_visibile(qapp):
     d = DialogoImpostazioni(preset_ids=["glm-ocr-q8_0"])
     assert d.aiuto_lingue_btn.property("aiuto") is True
     assert 'aiuto="true"' in d.styleSheet()
+
+
+def test_label_gpu_locale_e_flag(qapp):
+    d = DialogoImpostazioni(preset_ids=["glm-ocr-q8_0"])
+    assert d.sorgente.itemText(0) == "GPU locale"
+    assert d.valori()["sorgente"] == "bundlato"
+    d2 = DialogoImpostazioni(preset_ids=["glm-ocr-q8_0"], gpu_locale_disponibile=False)
+    voci = [d2.sorgente.itemText(i) for i in range(d2.sorgente.count())]
+    assert voci == ["esterno", "nessuno"]
+    d2.set_sorgente("esterno")
+    assert d2.valori()["sorgente"] == "esterno"

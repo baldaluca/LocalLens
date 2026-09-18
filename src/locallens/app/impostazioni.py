@@ -35,8 +35,11 @@ _AIUTI = {
 }
 
 
+VOCI_SORGENTE = (("GPU locale", "bundlato"), ("esterno", "esterno"), ("nessuno", "nessuno"))
+
+
 class DialogoImpostazioni(QDialog):
-    def __init__(self, preset_ids: list[str], parent=None, tema: str = "chiaro") -> None:
+    def __init__(self, preset_ids: list[str], parent=None, tema: str = "chiaro", gpu_locale_disponibile: bool = True) -> None:
         super().__init__(parent)
         self.setWindowTitle("Impostazioni LocalLens")
         self.setStyleSheet(qss(tema))  # come la finestra principale (stessi token)
@@ -45,7 +48,8 @@ class DialogoImpostazioni(QDialog):
         layout = QFormLayout(self)
 
         self.sorgente = QComboBox()
-        self.sorgente.addItems(["bundlato", "esterno", "nessuno"])
+        voci = [v for v in VOCI_SORGENTE if v[1] != "bundlato" or gpu_locale_disponibile]
+        self.sorgente.addItems([etichetta for etichetta, _ in voci])
         self.sorgente.currentTextChanged.connect(lambda _: self._aggiorna_avviso())
         layout.addRow("Sorgente modello", self.sorgente)
 
@@ -94,7 +98,10 @@ class DialogoImpostazioni(QDialog):
         self._aggiorna_avviso()
 
     def set_sorgente(self, valore: str) -> None:
-        self.sorgente.setCurrentText(valore)
+        for etichetta, ident in VOCI_SORGENTE:
+            if ident == valore and self.sorgente.findText(etichetta) >= 0:
+                self.sorgente.setCurrentText(etichetta)
+                return
 
     def set_preset(self, preset_id: str) -> None:
         self.preset.setCurrentText(preset_id)
@@ -133,8 +140,10 @@ class DialogoImpostazioni(QDialog):
         self.avviso.setVisible(mostra)
 
     def valori(self) -> dict:
+        scelta = self.sorgente.currentText()
+        ident = next(ident for etichetta, ident in VOCI_SORGENTE if etichetta == scelta)
         return {
-            "sorgente": self.sorgente.currentText(),
+            "sorgente": ident,
             "url_esterno": self.url.text(),
             "preset_id": self.preset.currentText(),
             "lingue_filtro": self.lingue.text().strip() or "it",
