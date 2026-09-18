@@ -6,6 +6,7 @@ import tomllib
 from pathlib import Path
 
 DEFAULTS = {
+    "lingua": "it",
     "sorgente": "bundlato",
     "url_esterno": "http://127.0.0.1:8011",
     "url_gpu_locale": "http://127.0.0.1:8011",
@@ -37,6 +38,8 @@ def percorso_config(
 
 
 def carica(path: Path | None = None) -> dict:
+    from locallens.app.lingua import LINGUE
+
     path = path or percorso_config()
     if not path.is_file():
         return dict(DEFAULTS)
@@ -46,6 +49,8 @@ def carica(path: Path | None = None) -> dict:
     conf.update({k: v for k, v in dati.items() if k in DEFAULTS})
     for chiave in SEGRET:
         conf[chiave] = DEFAULTS.get(chiave, "")
+    if conf.get("lingua") not in LINGUE:
+        conf["lingua"] = "it"
     return conf
 
 
