@@ -28,14 +28,16 @@ def _preset_da_conf(conf):
 def costruisci_da_conf(conf):
     """Boot completo: detect → preset → fabbrica. Ritorna (engine, stato, banner)."""
     from locallens.config.presets import seleziona_preset
-    from locallens.core.fabbrica import costruisci
+    from locallens.core.fabbrica import costruisci, normalizza_sorgente
     from locallens.hwdetect.detector import detect
 
     info = detect()
     preset = _preset_da_conf(conf)
     conf = dict(conf, preset_id=preset.id)
+    conf, avviso = normalizza_sorgente(conf, info, preset)
     engine, stato, banner = costruisci(conf, info, preset)
     atteso = seleziona_preset(info.vram_mb, [preset.id])
+    banner = "; ".join(b for b in (avviso, banner) if b)
     return engine, f"{stato} • atteso={atteso}", banner
 
 
