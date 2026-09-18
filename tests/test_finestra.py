@@ -217,6 +217,9 @@ def test_impostazioni_ricostruiscono_engine(qapp, monkeypatch, tmp_path):
         def set_sorgente(self, valore):
             pass
 
+        def set_lingua(self, valore):
+            pass
+
         def set_url_esterno(self, valore):
             pass
 
@@ -280,3 +283,73 @@ def test_chiusura_pulisce_token(qapp):
     w.conf["token_esterno"] = "tk-segreto"
     w.close()
     assert w.conf.get("token_esterno", "") == ""
+
+
+def test_applica_lingua_commuta_pulsanti_en_it(qapp):
+    from locallens.app.lingua import t
+
+    w = MainWindow()
+    w.conf["lingua"] = "en"
+    w.applica_lingua()
+    assert w.btn_apri.text() == t("en", "btn_apri")
+    assert w.btn_incolla.text() == t("en", "btn_incolla")
+    assert w.btn_schermo.text() == t("en", "btn_schermo")
+    assert w.btn_annulla.text() == t("en", "btn_annulla")
+    assert w.btn_copia.text() == t("en", "btn_copia")
+    assert w.btn_salva.text() == t("en", "btn_salva")
+    assert w.btn_setup.text() == t("en", "btn_impostazioni")
+    assert w.btn_tema.text() == t("en", "btn_tema", nome=w.tema_corrente)
+    assert w.testo.toPlainText() == t("en", "testo_vuoto")
+    assert w.doc.text() == t("en", "nessun_documento")
+    assert w.progress.format() == t("en", "progress_formato")
+    assert w.statusBar().currentMessage() == t("en", "status_pronto")
+    w.conf["lingua"] = "it"
+    w.applica_lingua()
+    assert w.btn_apri.text() == t("it", "btn_apri")
+    assert w.btn_setup.text() == t("it", "btn_impostazioni")
+    assert w.testo.toPlainText() == t("it", "testo_vuoto")
+
+
+def test_applica_lingua_pill_inglese(qapp):
+    from locallens.app.lingua import t
+
+    w = MainWindow()
+    w.conf.update(
+        {"sorgente": "bundlato", "url_esterno": "http://127.0.0.1:10000", "lingua": "en"}
+    )
+    w.applica_lingua()
+    assert t("en", "sorgente_bundlato") in w.pill.text()
+    assert "10000" in w.pill.text()
+
+
+def test_applica_lingua_ritraduce_lista(qapp):
+    from locallens.app.lingua import t
+
+    w = MainWindow()
+    w.mostra_estrazioni(_estrazioni())
+    w.conf["lingua"] = "en"
+    w.applica_lingua()
+    assert "Page 1" in w.lista.item(0).text()
+    assert "── Page 2" in w.testo.toPlainText()
+    assert t("en", "testo_vuoto") not in w.testo.toPlainText()
+
+
+def test_banner_runtime_in_inglese(qapp):
+    from locallens.app.lingua import t
+
+    w = MainWindow()
+    w.conf["lingua"] = "en"
+    w._engine = None
+    assert w._richiedi_engine() is None
+    assert w.banner.text() == t("en", "banner_motore_non_pronto")
+
+    class WorkerFinto:
+        def annulla(self):
+            pass
+
+    w._worker = WorkerFinto()
+    w.btn_annulla.setEnabled(True)
+    w._annulla()
+    assert w.banner.text() == t("en", "banner_annullamento")
+    w.mostra_estrazioni(_estrazioni())
+    assert w.banner.text() == t("en", "banner_fallback_cpu", id=2)

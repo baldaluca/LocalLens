@@ -20,6 +20,7 @@ from PySide6.QtWidgets import (
 
 from locallens.app.icone import percorso_icona
 from locallens.app.impostazioni import DialogoImpostazioni
+from locallens.app.lingua import t
 from locallens.app.tema import NOMI_TEMI, qss
 from locallens.app.worker import OcrWorker
 from locallens.config.settings import salva as salva_impostazioni
@@ -30,7 +31,14 @@ TESTO_VUOTO = (
     "Sorgenti: file • appunti • screenshot."
 )
 
-ETICHETTE_SORGENTE = {"bundlato": "GPU locale", "esterno": "esterno", "nessuno": "nessuno"}
+_CHIAVE_SORGENTE = {
+    "bundlato": "sorgente_bundlato",
+    "esterno": "sorgente_esterno",
+    "nessuno": "sorgente_nessuno",
+}
+
+# Alias di compatibilità (it) — il codice usa il catalogo via `t`.
+ETICHETTE_SORGENTE = {k: t("it", v) for k, v in _CHIAVE_SORGENTE.items()}
 
 
 def tempo_breve(ms: int) -> str:
@@ -155,8 +163,36 @@ class MainWindow(QMainWindow):
         self._worker: OcrWorker | None = None
         self._engine: OcrEngine | None = None
         self.conf: dict = {"sorgente": "bundlato", "url_esterno": "", "preset_id": ""}
-        self._aggiorna_bottoni()
+        self.applica_lingua()
+
+    def _lingua(self) -> str:
+        return self.conf.get("lingua", "it")
+
+    def applica_lingua(self) -> None:
+        """(Ri)imposta tutti i testi statici dal catalogo `lingua.py`."""
+        lingua = self._lingua()
+        self.btn_apri.setText(t(lingua, "btn_apri"))
+        self.btn_incolla.setText(t(lingua, "btn_incolla"))
+        self.btn_schermo.setText(t(lingua, "btn_schermo"))
+        self.btn_annulla.setText(t(lingua, "btn_annulla"))
+        self.btn_copia.setText(t(lingua, "btn_copia"))
+        self.btn_salva.setText(t(lingua, "btn_salva"))
+        self.btn_setup.setText(t(lingua, "btn_impostazioni"))
+        self.btn_tema.setText(t(lingua, "btn_tema", nome=self.tema_corrente))
+        if self._correnti:
+            self.mostra_estrazioni(list(self._correnti))
+        else:
+            self.testo.setPlainText(t(lingua, "testo_vuoto"))
+        if not self.doc.toolTip():
+            self.doc.setText(t(lingua, "nessun_documento"))
+        self.progress.setFormat(t(lingua, "progress_formato"))
+        if self.statusBar().currentMessage() in (
+            t("it", "status_pronto"),
+            t("en", "status_pronto"),
+        ):
+            self.set_stato(t(lingua, "status_pronto"))
         self.aggiorna_intestazione()
+        self._aggiorna_bottoni()
 
     def set_tema(self, nome: str) -> None:
         if nome not in NOMI_TEMI:
@@ -166,7 +202,7 @@ class MainWindow(QMainWindow):
         self.tema_corrente = nome
         self.setStyleSheet(qss(nome))
         applica_tavolozza(nome)
-        self.btn_tema.setText(f"Tema: {nome}")
+        self.btn_tema.setText(t(self._lingua(), "btn_tema", nome=nome))
 
     def cambia_tema(self) -> None:
         self.set_tema("scuro" if self.tema_corrente == "chiaro" else "chiaro")
@@ -200,7 +236,7 @@ class MainWindow(QMainWindow):
 
     def _richiedi_engine(self) -> OcrEngine | None:
         if self._engine is None:
-            self.mostra_banner("Motore non pronto: backend non avviato.")
+            self.mostra_banner(t(self._lingua(), "banner_motore_non_pronto"))
             return None
         return self._engine
 
@@ -210,7 +246,10 @@ class MainWindow(QMainWindow):
         from locallens.app.ingresso import carica_documento
 
         percorso, _ = QFileDialog.getOpenFileName(
-            self, "Apri immagine o PDF", "", "Documenti (*.png *.jpg *.jpeg *.pdf)"
+            self,
+            t(self._lingua(), "dialogo_apri_titolo"),
+            "",
+            t(self._lingua(), "dialogo_apri_filtro"),
         )
         if not percorso:
             return
@@ -220,7 +259,7 @@ class MainWindow(QMainWindow):
         try:
             self.avvia(carica_documento(percorso), engine, documento=percorso)
         except (FileNotFoundError, ValueError) as e:
-            self.mostra_banner(f"Errore: {e}")
+            self.mostra_banner(t(self._lingua(), "banner_errore", dettaglio=e))
 
     def _da_appunti(self) -> None:
         from PySide6.QtWidgets import QApplication
@@ -232,7 +271,7 @@ class MainWindow(QMainWindow):
             return
         png = da_appunti(QApplication.clipboard())
         if png is None:
-            self.mostra_banner("Appunti vuoti: nessuna immagine.")
+            self.mostra_banner(t(self._lingua(), "banner_appunti_vuoti"))
             return
         self.avvia([png], engine)
 
@@ -245,7 +284,7 @@ class MainWindow(QMainWindow):
         try:
             self.avvia([cattura_schermo()], engine)
         except Exception as e:  # noqa: BLE001 — display assente ecc: banner, mai crash
-            self.mostra_banner(f"Errore: {e}")
+            self.mostra_banner(t(self._lingua(), "banner_errore", dettaglio=e))
 
     def _preset_corrente(self):
         from locallens.__main__ import _preset_da_conf
@@ -267,8 +306,10 @@ class MainWindow(QMainWindow):
             parent=self,
             tema=self.tema_corrente,
             gpu_locale_disponibile=self._gpu_locale_disponibile(),
+            lingua=self.conf.get("lingua", "it"),
         )
         dlg.set_sorgente(self.conf.get("sorgente", "bundlato"))
+        dlg.set_lingua(self.conf.get("lingua", "it"))
         dlg.set_url_esterno(self.conf.get("url_esterno", ""))
         dlg.set_url_gpu_locale(self.conf.get("url_gpu_locale", self.conf.get("url_esterno", "")))
         dlg.set_cloud(
@@ -287,6 +328,8 @@ class MainWindow(QMainWindow):
             if avviso:
                 self.mostra_banner(avviso)
             salva_impostazioni(self.conf)
+            self.applica_lingua()
+            self.aggiorna_intestazione()
             ric = getattr(self, "_ricostruttore", None)
             if ric is not None:
                 engine, stato, banner = ric(self.conf)
@@ -305,10 +348,14 @@ class MainWindow(QMainWindow):
 
         self.nascondi_banner()
         self._correnti = []
-        nome = os.path.basename(documento) if documento else f"{len(immagini)} immagini"
+        nome = (
+            os.path.basename(documento)
+            if documento
+            else t(self._lingua(), "doc_nome_immagini", n=len(immagini))
+        )
         self.doc.setText(nome)
         self.doc.setToolTip(documento or nome)
-        self.testo.setPlainText("Elaborazione in corso…")
+        self.testo.setPlainText(t(self._lingua(), "elaborazione_in_corso"))
         self.btn_copia.setEnabled(False)
         self.btn_salva.setEnabled(False)
         self.progress.setValue(0)
@@ -353,12 +400,12 @@ class MainWindow(QMainWindow):
         n = len(self._correnti)
         if n:
             base = self.doc.toolTip() or self.doc.text()
-            self.doc.setText(f"{base} — {n} pagine")
+            self.doc.setText(t(self._lingua(), "doc_titolo_pagine", base=base, n=n))
 
     def _on_errore(self, job_id: str, messaggio: str) -> None:
         self.progress.hide()
         self.btn_annulla.setEnabled(False)
-        self.mostra_banner(f"Errore: {messaggio}")
+        self.mostra_banner(t(self._lingua(), "banner_errore", dettaglio=messaggio))
         self._worker = None
         self._aggiorna_bottoni()
 
@@ -378,29 +425,43 @@ class MainWindow(QMainWindow):
 
         from locallens.app.tema import TEMI
 
-        t = TEMI[self.tema_corrente]
+        t_tema = TEMI[self.tema_corrente]
+        self._correnti = list(estrazioni)
         self.lista.clear()
         testi = []
+        lingua = self._lingua()
         for e in estrazioni:
             caduta = e.motore_usato == "cpu-tesseract"
-            item = QListWidgetItem(f"Pagina {e.pagina_id} • {e.motore_usato} • {tempo_breve(e.ms)}")
-            item.setForeground(QColor(t["fallback" if caduta else "success"]))
+            item = QListWidgetItem(
+                t(lingua, "riga_pagina", id=e.pagina_id, motore=e.motore_usato, tempo=tempo_breve(e.ms))
+            )
+            item.setForeground(QColor(t_tema["fallback" if caduta else "success"]))
             self.lista.addItem(item)
-            testi.append(f"── Pagina {e.pagina_id} • {e.motore_usato} • {tempo_breve(e.ms)} ──\n{e.testo}")
+            testi.append(
+                t(
+                    lingua,
+                    "blocco_pagina",
+                    id=e.pagina_id,
+                    motore=e.motore_usato,
+                    tempo=tempo_breve(e.ms),
+                    testo=e.testo,
+                )
+            )
             if caduta:
-                self.mostra_banner(f"Pagina {e.pagina_id} elaborata via CPU (fallback)")
-        self.testo.setPlainText("\n\n".join(testi) if testi else TESTO_VUOTO)
+                self.mostra_banner(t(lingua, "banner_fallback_cpu", id=e.pagina_id))
+        self.testo.setPlainText("\n\n".join(testi) if testi else t(lingua, "testo_vuoto"))
         self._aggiorna_bottoni()
 
     def aggiorna_intestazione(self) -> None:
         """Pill motore in linguaggio umano: '● GPU locale • http://...'."""
+        lingua = self._lingua()
         sorgente = self.conf.get("sorgente", "bundlato")
         if sorgente == "bundlato":
             dettaglio = self.conf.get("url_gpu_locale") or self.conf.get("url_esterno", "") or "—"
         elif sorgente == "esterno":
             dettaglio = self.conf.get("modello_esterno", "") or self.conf.get("preset_id", "") or "—"
         else:
-            dettaglio = "solo CPU"
+            dettaglio = t(lingua, "dettaglio_solo_cpu")
         colori = {
             "esterno": "success",
             "bundlato": "success",
@@ -408,12 +469,24 @@ class MainWindow(QMainWindow):
         }
         from locallens.app.tema import TEMI
 
-        t = TEMI[self.tema_corrente]
-        colore = t[colori.get(sorgente, "muted")]
-        self.pill.setText(f"<span style='color:{colore}'>●</span> {ETICHETTE_SORGENTE.get(sorgente, sorgente)} • {dettaglio}")
+        t_tema = TEMI[self.tema_corrente]
+        colore = t_tema[colori.get(sorgente, "muted")]
+        etichetta = t(lingua, _CHIAVE_SORGENTE[sorgente]) if sorgente in _CHIAVE_SORGENTE else sorgente
+        self.pill.setText(
+            f"<span style='color:{colore}'>●</span> "
+            f"{t(lingua, 'pill_formato', etichetta=etichetta, dettaglio=dettaglio)}"
+        )
 
     def _aggiorna_bottoni(self) -> None:
-        ha_testo = bool(self.testo.toPlainText().strip()) and self.testo.toPlainText() != TESTO_VUOTO
+        corrente = self.testo.toPlainText()
+        vuoti = {
+            TESTO_VUOTO,
+            t("it", "testo_vuoto"),
+            t("en", "testo_vuoto"),
+            t("it", "elaborazione_in_corso"),
+            t("en", "elaborazione_in_corso"),
+        }
+        ha_testo = bool(corrente.strip()) and corrente not in vuoti
         self.btn_copia.setEnabled(ha_testo)
         self.btn_salva.setEnabled(ha_testo)
 
@@ -421,7 +494,7 @@ class MainWindow(QMainWindow):
         if self._worker is not None:
             self._worker.annulla()
             self.btn_annulla.setEnabled(False)
-            self.mostra_banner("Annullamento richiesto: finisco la Pagina corrente.")
+            self.mostra_banner(t(self._lingua(), "banner_annullamento"))
 
     def copia(self) -> None:
         from PySide6.QtWidgets import QApplication
@@ -431,7 +504,9 @@ class MainWindow(QMainWindow):
     def salva(self, percorso: str) -> None:
         if not percorso:
             QMessageBox.information(
-                self, "Salva", "Scegli un file da dialogo (non in test)."
+                self,
+                t(self._lingua(), "salva_titolo"),
+                t(self._lingua(), "salva_messaggio"),
             )
             return
         with open(percorso, "w", encoding="utf-8") as f:
@@ -441,7 +516,10 @@ class MainWindow(QMainWindow):
         from PySide6.QtWidgets import QFileDialog
 
         percorso, _ = QFileDialog.getSaveFileName(
-            self, "Salva estrazione", "", "Testo (*.txt)"
+            self,
+            t(self._lingua(), "dialogo_salva_titolo"),
+            "",
+            t(self._lingua(), "dialogo_salva_filtro"),
         )
         if percorso:
             self.salva(percorso)

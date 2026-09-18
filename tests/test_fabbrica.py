@@ -207,3 +207,78 @@ def test_esterno_senza_modello_resta_preset():
     crea = lambda url, p, motore, **k: ("engine", url, motore)
     eng, _stato, _banner = costruisci(conf, _info(), preset, crea=crea)
     assert eng == ("engine", "http://127.0.0.1:8011", "esterno")
+
+
+def test_normalizza_banner_inglese_e_default_italiano(monkeypatch):
+    import locallens.core.fabbrica as fab
+    from locallens.app.lingua import t
+    from locallens.core.fabbrica import normalizza_sorgente
+
+    monkeypatch.setattr(fab, "disponibilita_gpu_locale", lambda *a, **k: False)
+    preset = load_preset("presets/glm-ocr-q8_0.toml")
+    _, banner_en = normalizza_sorgente({"sorgente": "bundlato", "lingua": "en"}, _info(), preset)
+    assert banner_en == t("en", "banner_gpu_non_rilevata")
+    _, banner_it = normalizza_sorgente({"sorgente": "bundlato"}, _info(), preset)
+    assert banner_it == t("it", "banner_gpu_non_rilevata")
+
+
+def test_costruisci_esterno_banner_privacy_inglese():
+    from locallens.app.lingua import t
+
+    preset = load_preset("presets/glm-ocr-q8_0.toml")
+    conf = {"sorgente": "esterno", "url_esterno": "http://203.0.113.10:8011", "lingua": "en"}
+    _eng, stato, banner = costruisci(conf, _info(), preset, crea=lambda u, p, motore, **k: u)
+    assert banner == t("en", "banner_privacy_url")
+    assert stato == t("en", "stato_esterno", url="http://203.0.113.10:8011")
+
+
+def test_costruisci_nessuno_stato_inglese_e_default():
+    from locallens.app.lingua import t
+
+    preset = load_preset("presets/glm-ocr-q8_0.toml")
+    eng_en, stato_en, _ = costruisci(
+        {"sorgente": "nessuno", "lingua": "en"}, _info(), preset,
+        solo_cpu=lambda motivo: f"cpu:{motivo}",
+    )
+    assert eng_en == f"cpu:{t('en', 'motivo_solo_tesseract')}"
+    assert stato_en == t("en", "stato_nessuno")
+    eng_it, stato_it, _ = costruisci(
+        {"sorgente": "nessuno"}, _info(), preset, solo_cpu=lambda motivo: f"cpu:{motivo}"
+    )
+    assert eng_it == f"cpu:{t('it', 'motivo_solo_tesseract')}"
+    assert stato_it == t("it", "stato_nessuno")
+
+
+def test_costruisci_bundlato_ko_inglese():
+    from locallens.app.lingua import t
+
+    preset = load_preset("presets/glm-ocr-q8_0.toml")
+    url = "http://127.0.0.1:10000"
+    eng, stato, banner = costruisci(
+        {"sorgente": "bundlato", "url_esterno": url, "lingua": "en"},
+        _info(),
+        preset,
+        crea=lambda u, p, motore, **k: "engine",
+        verifica=lambda u: False,
+        solo_cpu=lambda m: f"cpu:{m}",
+    )
+    assert eng == f"cpu:{t('en', 'motivo_gpu_non_raggiungibile', url=url)}"
+    assert stato == t("en", "stato_gpu_solo_cpu")
+    assert banner == t("en", "banner_solo_cpu_assente", url=url)
+
+
+def test_costruisci_bundlato_ok_stato_inglese():
+    from locallens.app.lingua import t
+
+    preset = load_preset("presets/glm-ocr-q8_0.toml")
+    url = "http://127.0.0.1:10000"
+    eng, stato, banner = costruisci(
+        {"sorgente": "bundlato", "url_esterno": url, "lingua": "en"},
+        _info(),
+        preset,
+        crea=lambda u, p, motore, **k: "engine",
+        verifica=lambda u: True,
+    )
+    assert eng == "engine"
+    assert stato == t("en", "stato_gpu_locale", url=url)
+    assert banner == ""

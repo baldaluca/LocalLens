@@ -2,6 +2,7 @@
 
 import sys
 
+from locallens.app.lingua import t
 from locallens.backend.manager import is_url_privata
 
 
@@ -36,7 +37,7 @@ def normalizza_sorgente(conf, info, preset, **rileva_kw) -> tuple[dict, str | No
         info, preset, **rileva_kw
     ):
         nuova = dict(conf, sorgente="esterno")
-        return nuova, "GPU locale non rilevata (binari o pesi assenti): uso il server esterno."
+        return nuova, t(conf.get("lingua", "it"), "banner_gpu_non_rilevata")
     return conf, None
 
 
@@ -48,14 +49,11 @@ def costruisci(conf, info, preset, gestore=None, crea=None, solo_cpu=None, pesi=
     crea = crea or _crea
     verifica = verifica or verifica_health
     sorgente = conf.get("sorgente", "bundlato")
+    lingua = conf.get("lingua", "it")
 
     if sorgente == "esterno":
         url = conf.get("url_esterno", "http://127.0.0.1:8011")
-        banner = (
-            ""
-            if is_url_privata(url)
-            else "Attenzione privacy: l'URL non punta alla rete locale."
-        )
+        banner = "" if is_url_privata(url) else t(lingua, "banner_privacy_url")
         modello = (conf.get("modello_esterno") or "").strip()
         if modello:
             # Cloud tutto a mano: token+modello+prompt, nessun preset.
@@ -81,7 +79,7 @@ def costruisci(conf, info, preset, gestore=None, crea=None, solo_cpu=None, pesi=
             contrasto=conf.get("contrasto", False),
             **_contesto(conf),
         )
-        return engine, f"esterno • {url}", banner
+        return engine, t(lingua, "stato_esterno", url=url), banner
 
     if sorgente == "nessuno":
         if solo_cpu is None:
@@ -89,8 +87,8 @@ def costruisci(conf, info, preset, gestore=None, crea=None, solo_cpu=None, pesi=
 
             solo_cpu = _reale
         return (
-            solo_cpu("scelta utente: solo Tesseract"),
-            "nessuno (solo CPU)",
+            solo_cpu(t(lingua, "motivo_solo_tesseract")),
+            t(lingua, "stato_nessuno"),
             "",
         )
 
@@ -106,12 +104,12 @@ def costruisci(conf, info, preset, gestore=None, crea=None, solo_cpu=None, pesi=
                 contrasto=conf.get("contrasto", False),
                 **_contesto(conf),
             ),
-            f"GPU locale • {url}",
+            t(lingua, "stato_gpu_locale", url=url),
             "",
         )
     if solo_cpu is None:
         from locallens.__main__ import _solo_cpu as _reale
 
         solo_cpu = _reale
-    motivo = f"GPU locale non raggiungibile: {url}"
-    return solo_cpu(motivo), "GPU locale (solo CPU)", f"Solo CPU: server assente su {url}"
+    motivo = t(lingua, "motivo_gpu_non_raggiungibile", url=url)
+    return solo_cpu(motivo), t(lingua, "stato_gpu_solo_cpu"), t(lingua, "banner_solo_cpu_assente", url=url)
