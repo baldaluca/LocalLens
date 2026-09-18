@@ -53,7 +53,7 @@ def test_start_fallisce_se_binario_manca():
 def test_start_fallisce_se_health_ko_e_uccide():
     mgr, _lanci, uccisi = _manager(health_ok=False)
     with pytest.raises(RuntimeError):
-        mgr.start("vulkan")
+        mgr.start("vulkan", attesa_max=0)
     assert uccisi == [4242]
 
 
@@ -78,3 +78,23 @@ def test_health_delega_a_verifica():
     mgr2, _, _ = _manager(health_ok=False)
     # senza start: health False invece di eccezione (UI resta usabile via CPU)
     assert mgr2.health() is False
+
+
+def test_start_attende_caricamento_lento():
+    """Server sano ma lento: due KO poi OK entro attesa_max → nessun kill."""
+    tentativi = []
+    mgr, _, uccisi = _manager()
+    mgr._verifica = lambda url: (tentativi.append(url), len(tentativi) >= 3)[1]
+    h = mgr.start("cuda", attesa_max=30)
+    assert h.base_url == "http://127.0.0.1:8011"
+    assert len(tentativi) == 3
+    assert uccisi == []
+
+
+def test_start_scade_attesa_e_uccide():
+    mgr, _, uccisi = _manager(health_ok=False)
+    import pytest
+
+    with pytest.raises(RuntimeError):
+        mgr.start("vulkan", attesa_max=0)
+    assert uccisi == [4242]
