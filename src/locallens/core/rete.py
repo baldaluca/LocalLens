@@ -1,6 +1,7 @@
-"""Utilità rete pura: nessun I/O, nessuna dipendenza di layer."""
+"""Utilità rete e percorsi binari: nessuna dipendenza da backend o subprocess."""
 
 import ipaddress
+from pathlib import Path
 from urllib.parse import urlparse
 
 
@@ -25,3 +26,23 @@ def is_url_privata(url: str) -> bool:
         ipaddress.ip_network("fe80::/10"),
     ]
     return any(ip in r for r in reti)
+
+
+def resolve_binary(platform: str, backend_gpu: str, bins_root: str | None = None) -> Path:
+    """bins/<os>/<backend>/llama-server[.exe]. Default = bundle o CWD."""
+    from locallens.config.percorsi import risorsa
+
+    root = Path(bins_root) if bins_root else risorsa("bins")
+    nome = "llama-server.exe" if platform == "win32" else "llama-server"
+    return root / platform / backend_gpu / nome
+
+
+def verifica_health(base_url: str, timeout: float = 2) -> bool:
+    """True se GET {base_url}/health risponde 200. Mai eccezioni."""
+    import urllib.request
+
+    try:
+        with urllib.request.urlopen(base_url.rstrip("/") + "/health", timeout=timeout) as r:
+            return r.status == 200
+    except (OSError, ValueError):
+        return False

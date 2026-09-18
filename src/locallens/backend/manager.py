@@ -2,7 +2,7 @@
 from dataclasses import dataclass
 from pathlib import Path
 
-from locallens.core.rete import is_url_privata
+from locallens.core.rete import is_url_privata, resolve_binary, verifica_health
 
 __all__ = [
     "BackendHandle",
@@ -22,15 +22,6 @@ class BackendHandle:
     pid: int | None = None
 
 
-def resolve_binary(platform: str, backend_gpu: str, bins_root: str | None = None) -> Path:
-    """bins/<os>/<backend>/llama-server[.exe]. Default = bundle o CWD."""
-    from locallens.config.percorsi import risorsa
-
-    root = Path(bins_root) if bins_root else risorsa("bins")
-    nome = "llama-server.exe" if platform == "win32" else "llama-server"
-    return root / platform / backend_gpu / nome
-
-
 def trova_porta_libera(partenza: int = 8011, occupate: set[int] | None = None) -> int:
     """Scan verso l'alto da `partenza` (max +10). Versione pura e testabile."""
     occupate = occupate or set()
@@ -38,17 +29,6 @@ def trova_porta_libera(partenza: int = 8011, occupate: set[int] | None = None) -
         if porta not in occupate:
             return porta
     raise OSError("nessuna porta libera in 8011-8020")
-
-
-def verifica_health(base_url: str, timeout: float = 2) -> bool:
-    """True se GET {base_url}/health risponde 200. Mai eccezioni."""
-    import urllib.request
-
-    try:
-        with urllib.request.urlopen(base_url.rstrip("/") + "/health", timeout=timeout) as r:
-            return r.status == 200
-    except (OSError, ValueError):
-        return False
 
 
 class BackendManager:

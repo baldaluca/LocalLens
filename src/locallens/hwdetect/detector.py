@@ -48,7 +48,7 @@ def detect(
     import sys
     from pathlib import Path
 
-    from locallens.backend.manager import resolve_binary
+    from locallens.core.rete import resolve_binary
 
     piattaforma = piattaforma or sys.platform
     os = "linux" if piattaforma.startswith("linux") else "win32"

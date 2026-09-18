@@ -81,18 +81,27 @@ def test_health_delega_a_verifica():
 
 
 def test_verifica_health_ko_su_porta_chiusa():
-    from locallens.backend.manager import verifica_health
+    from locallens.core.rete import verifica_health
 
     assert verifica_health("http://127.0.0.1:9", timeout=1) is False
 
 
 def test_verifica_health_url_malformato_ritorna_false():
     """MINOR 11 RED: URL malformato non deve sollevare, deve ritornare False."""
-    from locallens.backend.manager import verifica_health
+    from locallens.core.rete import verifica_health
 
     assert verifica_health("://malformato", timeout=1) is False
     assert verifica_health("http://", timeout=1) is False
     assert verifica_health("", timeout=1) is False
+
+
+def test_backend_riespone_nomi_core_per_compatibilita():
+    import locallens.backend.manager as mgr
+    import locallens.core.rete as rete
+
+    assert mgr.resolve_binary is rete.resolve_binary
+    assert mgr.verifica_health is rete.verifica_health
+    assert mgr.is_url_privata is rete.is_url_privata
 
 
 def test_lancio_reale_redirige_stdio_e_registra_proc(monkeypatch):

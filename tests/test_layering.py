@@ -13,6 +13,7 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
 APP_DIR = REPO / "src" / "locallens" / "app"
+CORE_DIR = REPO / "src" / "locallens" / "core"
 FABBRICA = REPO / "src" / "locallens" / "core" / "fabbrica.py"
 FINESTRA = APP_DIR / "finestra.py"
 IMPOSTAZIONI = APP_DIR / "impostazioni.py"
@@ -70,6 +71,19 @@ def test_fabbrica_non_importa_main():
     moduli = _moduli_importati(FABBRICA)
     vietati = [m for m in moduli if m == "locallens.__main__"]
     assert vietati == [], f"inversione layer in core/fabbrica: {vietati}"
+
+
+def test_core_non_importa_backend():
+    violazioni = []
+    for f in sorted(CORE_DIR.glob("*.py")):
+        vietati = [
+            mod
+            for mod in _moduli_importati(f)
+            if mod == "locallens.backend" or mod.startswith("locallens.backend.")
+        ]
+        if vietati:
+            violazioni.append(f"{f.name} importa {vietati}")
+    assert violazioni == [], f"inversione layer in core: {violazioni}"
 
 
 def _nomi_importati_da(path: Path, modulo: str) -> set[str]:

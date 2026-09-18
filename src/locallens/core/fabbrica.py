@@ -3,7 +3,7 @@
 import sys
 
 from locallens.app.lingua import t
-from locallens.core.rete import is_url_privata
+from locallens.core.rete import is_url_privata, resolve_binary, verifica_health
 from locallens.core.orchestrator import solo_cpu as _solo_cpu_default
 
 
@@ -23,7 +23,6 @@ def _contesto(conf) -> dict:
 
 def disponibilita_gpu_locale(info, preset, piattaforma=None, bins_root=None, cache_root=None) -> bool:
     """True se la GPU locale è davvero usabile: binario + pesi presenti. Nessun download."""
-    from locallens.backend.manager import resolve_binary
     from locallens.config.pesi import snapshot_completo
 
     if not info.candidati:
@@ -61,7 +60,6 @@ def normalizza_sorgente(conf, info, preset, **rileva_kw) -> tuple[dict, str | No
 
 def costruisci(conf, info, preset, gestore=None, crea=None, solo_cpu=None, pesi=None, verifica=None, crea_cloud=None):
     """(engine, stato, banner). Dipendenze iniettabili; default = reali."""
-    from locallens.backend.manager import verifica_health
     from locallens.core.orchestrator import crea_engine as _crea
 
     crea = crea or _crea

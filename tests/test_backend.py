@@ -1,6 +1,7 @@
 """RED: logica pura BackendManager senza avviare processi reali."""
 
-from locallens.backend.manager import is_url_privata, resolve_binary, trova_porta_libera
+from locallens.backend.manager import trova_porta_libera
+from locallens.core.rete import is_url_privata, resolve_binary
 
 
 def test_resolve_binary_linux_cuda():
