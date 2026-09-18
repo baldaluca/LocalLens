@@ -15,7 +15,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from locallens.app.tema import qss
+from locallens.app.tema import applica_tavolozza, qss
 from locallens.backend.manager import is_url_privata
 
 _AIUTI = {
@@ -40,6 +40,7 @@ class DialogoImpostazioni(QDialog):
         super().__init__(parent)
         self.setWindowTitle("Impostazioni LocalLens")
         self.setStyleSheet(qss(tema))  # come la finestra principale (stessi token)
+        applica_tavolozza(tema)
         self.setWindowFlag(Qt.WindowContextHelpButtonHint, True)
         layout = QFormLayout(self)
 

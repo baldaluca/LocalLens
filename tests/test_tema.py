@@ -60,3 +60,17 @@ def test_qss_dropdown_popup_a_tema():
         foglio = tema.qss(nome)
         assert "QAbstractItemView" in foglio
         assert tema.TEMI[nome]["surface"] in foglio
+
+
+def test_dropdown_freccia_a_tema(qapp):
+    from PySide6.QtGui import QPalette
+
+    from locallens.app.tema import applica_tavolozza
+
+    for nome in ("chiaro", "scuro"):
+        applica_tavolozza(nome)
+        tav = QApplication.palette()
+        assert tav.color(QPalette.ColorRole.ButtonText).name() == tema.TEMI[nome]["foreground"].lower()
+        assert tav.color(QPalette.ColorRole.Highlight).name() == tema.TEMI[nome]["primary"].lower()
+    foglio = tema.qss("scuro")
+    assert "QComboBox::drop-down" in foglio

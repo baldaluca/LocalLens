@@ -159,8 +159,11 @@ class MainWindow(QMainWindow):
     def set_tema(self, nome: str) -> None:
         if nome not in NOMI_TEMI:
             raise ValueError(f"tema ignoto: {nome}")
+        from locallens.app.tema import applica_tavolozza
+
         self.tema_corrente = nome
         self.setStyleSheet(qss(nome))
+        applica_tavolozza(nome)
         self.btn_tema.setText(f"Tema: {nome}")
 
     def cambia_tema(self) -> None:

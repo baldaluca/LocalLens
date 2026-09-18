@@ -40,6 +40,31 @@ TEMI = {
 NOMI_TEMI = ("chiaro", "scuro")
 
 
+def applica_tavolozza(nome: str) -> None:
+    """Palette applicativa coi token: i glifi nativi (frecce combo/spin,
+    indicatori check) usano i colori del tema invece di quelli di sistema."""
+    from PySide6.QtGui import QColor, QPalette
+    from PySide6.QtWidgets import QApplication
+
+    try:
+        t = TEMI[nome]
+    except KeyError:
+        raise ValueError(f"tema ignoto: {nome} (chiaro|scuro)") from None
+    app = QApplication.instance()
+    if app is None:
+        return
+    tav = QPalette()
+    tav.setColor(QPalette.ColorRole.Window, QColor(t["background"]))
+    tav.setColor(QPalette.ColorRole.WindowText, QColor(t["foreground"]))
+    tav.setColor(QPalette.ColorRole.Base, QColor(t["input_bg"]))
+    tav.setColor(QPalette.ColorRole.Text, QColor(t["foreground"]))
+    tav.setColor(QPalette.ColorRole.Button, QColor(t["surface"]))
+    tav.setColor(QPalette.ColorRole.ButtonText, QColor(t["foreground"]))
+    tav.setColor(QPalette.ColorRole.Highlight, QColor(t["primary"]))
+    tav.setColor(QPalette.ColorRole.HighlightedText, QColor(t["on_primary"]))
+    app.setPalette(tav)
+
+
 def qss(nome: str) -> str:
     try:
         t = TEMI[nome]
@@ -84,6 +109,9 @@ QLineEdit, QComboBox, QSpinBox {{ background: {t['input_bg']}; color: {t['foregr
 QComboBox QAbstractItemView {{ background: {t['surface']}; color: {t['foreground']};
   selection-background-color: {t['primary']}; selection-color: {t['on_primary']};
   border: 1px solid {t['border']}; }}
+QComboBox::drop-down {{ subcontrol-origin: padding; subcontrol-position: top right;
+  width: 24px; border-left: 1px solid {t['border']}; background: {t['surface']};
+  border-top-right-radius: 8px; border-bottom-right-radius: 8px; }}
 QSpinBox::up-button, QSpinBox::down-button {{ background: {t['surface']};
   border: 1px solid {t['border']}; }}
 QLabel#suggerimento {{ color: {t['muted']}; font-size: 12px; }}
