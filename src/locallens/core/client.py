@@ -1,9 +1,13 @@
 """Client HTTP per /v1/chat/completions. Prompt/modello dal preset, mai hardcoded."""
 import json
+import urllib.error
 import urllib.request
 from collections.abc import Callable
 
 from locallens.core.errori import InferenzaError
+
+#: Quanti caratteri del body d'errore finiscono in nota/diario.
+MAX_CORPO_ERRORE = 500
 
 
 def build_chat_payload(
@@ -62,6 +66,13 @@ def invia_chat(
                 risposta = json.load(r)
         else:
             risposta = post(url, payload)
+    except urllib.error.HTTPError as e:
+        try:
+            corpo = e.read().decode("utf-8", "replace")[:MAX_CORPO_ERRORE]
+        except Exception:
+            corpo = ""
+        dettaglio = corpo or e.reason
+        raise InferenzaError(f"chiamata chat fallita: HTTP {e.code}: {dettaglio}") from e
     except InferenzaError:
         raise
     except Exception as e:

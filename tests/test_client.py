@@ -120,3 +120,28 @@ def test_invia_chat_senza_token_nessun_header(monkeypatch):
     monkeypatch.setattr("urllib.request.urlopen", urlopen_finto)
     client.invia_chat("http://x", {"model": "m"})
     assert viste["auth"] is None
+
+
+def test_errore_http_include_corpo_server():
+    import io
+    import urllib.error
+
+    import locallens.core.client as client
+
+    def urlopen_finto(req, timeout=None):
+        raise urllib.error.HTTPError(
+            req.full_url, 400, "Bad Request", {}, io.BytesIO(b'{"error":"model not found"}')
+        )
+
+    import urllib.request
+
+    orig = urllib.request.urlopen
+    urllib.request.urlopen = urlopen_finto
+    try:
+        try:
+            client.invia_chat("http://x/api/chat", {"model": "m"})
+            raise AssertionError("doveva sollevare")
+        except Exception as e:
+            assert "model not found" in str(e)
+    finally:
+        urllib.request.urlopen = orig
