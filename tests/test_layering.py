@@ -4,8 +4,8 @@ Controllo statico via AST sui soli statement import: fallisce se qualcuno
 reintroduce `app -> __main__ / hwdetect` o `core/fabbrica -> __main__`
 (`finestra.py` inoltre non deve importare `backend`).
 
-Eccezione nota fuori scope (non toccare: finding parcheggiati):
-`app/impostazioni.py` importa `locallens.backend.manager.is_url_privata`.
+`is_url_privata` vive in `core/rete.py` (`backend/manager.py` la riespone
+solo per compatibilità): nessun file `app` deve importare `backend`.
 """
 
 import ast
@@ -15,10 +15,10 @@ REPO = Path(__file__).resolve().parents[1]
 APP_DIR = REPO / "src" / "locallens" / "app"
 FABBRICA = REPO / "src" / "locallens" / "core" / "fabbrica.py"
 FINESTRA = APP_DIR / "finestra.py"
+IMPOSTAZIONI = APP_DIR / "impostazioni.py"
 
-# Fuori scope di questo finding (parcheggiato): non far fallire la suite,
-# ma impedisci che ALTRI file app importino backend.
-ECCEZIONI_BACKEND_NOTE = {"impostazioni.py"}
+# Nessuna eccezione: app non importa mai backend.
+ECCEZIONI_BACKEND_NOTE: set[str] = set()
 
 
 def _moduli_importati(path: Path) -> set[str]:
@@ -70,6 +70,36 @@ def test_fabbrica_non_importa_main():
     moduli = _moduli_importati(FABBRICA)
     vietati = [m for m in moduli if m == "locallens.__main__"]
     assert vietati == [], f"inversione layer in core/fabbrica: {vietati}"
+
+
+def _nomi_importati_da(path: Path, modulo: str) -> set[str]:
+    albero = ast.parse(path.read_text(encoding="utf-8"))
+    nomi: set[str] = set()
+    for nodo in ast.walk(albero):
+        if isinstance(nodo, ast.ImportFrom) and nodo.module == modulo:
+            nomi.update(a.asname or a.name for a in nodo.names)
+    return nomi
+
+
+def test_is_url_privata_vive_in_core_rete():
+    from locallens.core.rete import is_url_privata
+
+    assert is_url_privata("http://127.0.0.1:8011") is True
+    assert is_url_privata("https://example.com:443") is False
+    for f in (IMPOSTAZIONI, FABBRICA):
+        moduli = _moduli_importati(f)
+        assert "locallens.core.rete" in moduli, f"{f.name} deve importare core.rete"
+        assert "is_url_privata" not in _nomi_importati_da(
+            f, "locallens.backend.manager"
+        ), f"{f.name} importa is_url_privata da backend"
+    # app non importa backend per nessuna ragione
+    moduli_imp = _moduli_importati(IMPOSTAZIONI)
+    vietati = [
+        m
+        for m in moduli_imp
+        if m == "locallens.backend" or m.startswith("locallens.backend.")
+    ]
+    assert vietati == [], f"impostazioni.py importa backend: {vietati}"
 
 
 def test_solo_cpu_vive_in_orchestrator():

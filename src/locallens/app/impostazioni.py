@@ -18,10 +18,8 @@ from PySide6.QtWidgets import (
 
 from locallens.app.lingua import LINGUE, t
 from locallens.app.tema import applica_tavolozza, qss
-from locallens.backend.manager import is_url_privata
+from locallens.core.rete import is_url_privata
 
-
-VOCI_SORGENTE = (("GPU locale", "bundlato"), ("esterno", "esterno"), ("nessuno", "nessuno"))
 
 _ID_SORGENTI = ("bundlato", "esterno", "nessuno")
 _CHIAVE_SORGENTE = {"bundlato": "sorgente_bundlato", "esterno": "sorgente_esterno", "nessuno": "sorgente_nessuno"}

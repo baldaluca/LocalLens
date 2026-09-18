@@ -265,6 +265,100 @@ def test_avvia_mostra_banner_su_errore(qapp):
     assert "boom" in w.banner.text()
 
 
+def test_avvia_usa_job_id_del_diario(qapp, monkeypatch):
+    from types import SimpleNamespace
+
+    from PySide6.QtCore import QCoreApplication, QThreadPool
+
+    from locallens.app import finestra as mod_finestra
+    from locallens.core.orchestrator import OcrEngine
+
+    catturati: dict = {}
+
+    Reale = mod_finestra.OcrWorker
+
+    def fabbrica(job_id, engine, immagini, diario):
+        catturati["job_id"] = job_id
+        catturati["diario"] = diario
+        return Reale(job_id=job_id, engine=engine, immagini=immagini, diario=diario)
+
+    monkeypatch.setattr(mod_finestra, "OcrWorker", fabbrica)
+    diario = SimpleNamespace(
+        job_id="jid-diario-1",
+        registra_pagina=lambda *a, **k: None,
+        chiudi=lambda *a, **k: None,
+    )
+    monkeypatch.setattr(MainWindow, "_nuovo_diario", lambda self, documento="": diario)
+    w = MainWindow()
+    eng = OcrEngine(infer=lambda p, i: (f"t{p}", "cuda"), fallback=lambda p, i: "fb")
+    finiti: list = []
+    orig_finito = w._on_finito
+    w._on_finito = lambda jid: (finiti.append(jid), orig_finito(jid))
+    w.avvia([b"a"], eng)
+    assert QThreadPool.globalInstance().waitForDone(5000)
+    QCoreApplication.processEvents()
+    assert catturati["job_id"] == "jid-diario-1"
+    assert finiti == ["jid-diario-1"]
+
+
+def test_avvia_errore_riporta_job_id_del_diario(qapp, monkeypatch):
+    from types import SimpleNamespace
+
+    from PySide6.QtCore import QCoreApplication, QThreadPool
+
+    from locallens.app import finestra as mod_finestra
+    from locallens.core.orchestrator import OcrEngine
+
+    catturati: dict = {}
+    Reale = mod_finestra.OcrWorker
+
+    def fabbrica(job_id, engine, immagini, diario):
+        catturati["job_id"] = job_id
+        return Reale(job_id=job_id, engine=engine, immagini=immagini, diario=diario)
+
+    monkeypatch.setattr(mod_finestra, "OcrWorker", fabbrica)
+    diario = SimpleNamespace(
+        job_id="jid-errore-9",
+        registra_pagina=lambda *a, **k: None,
+        chiudi=lambda *a, **k: None,
+    )
+    monkeypatch.setattr(MainWindow, "_nuovo_diario", lambda self, documento="": diario)
+    w = MainWindow()
+    eng = OcrEngine(infer=lambda p, i: (f"t{p}", "cuda"), fallback=lambda p, i: "fb")
+    eng.submit_document = lambda *a, **k: (_ for _ in ()).throw(RuntimeError("boom-x"))
+    errori: list = []
+    orig_errore = w._on_errore
+    w._on_errore = lambda jid, msg: (errori.append((jid, msg)), orig_errore(jid, msg))
+    w.avvia([b"a"], eng)
+    assert QThreadPool.globalInstance().waitForDone(5000)
+    QCoreApplication.processEvents()
+    assert catturati["job_id"] == "jid-errore-9"
+    assert errori and errori[0][0] == "jid-errore-9"
+
+
+def test_avvia_fallback_doc_senza_diario(qapp, monkeypatch):
+    from PySide6.QtCore import QCoreApplication, QThreadPool
+
+    from locallens.app import finestra as mod_finestra
+    from locallens.core.orchestrator import OcrEngine
+
+    catturati: dict = {}
+    Reale = mod_finestra.OcrWorker
+
+    def fabbrica(job_id, engine, immagini, diario):
+        catturati["job_id"] = job_id
+        return Reale(job_id=job_id, engine=engine, immagini=immagini, diario=diario)
+
+    monkeypatch.setattr(mod_finestra, "OcrWorker", fabbrica)
+    monkeypatch.setattr(MainWindow, "_nuovo_diario", lambda self, documento="": None)
+    w = MainWindow()
+    eng = OcrEngine(infer=lambda p, i: (f"t{p}", "cuda"), fallback=lambda p, i: "fb")
+    w.avvia([b"a"], eng)
+    assert QThreadPool.globalInstance().waitForDone(5000)
+    QCoreApplication.processEvents()
+    assert catturati["job_id"] == "doc"
+
+
 def test_pill_mostra_gpu_locale(qapp):
     from locallens.app.finestra import ETICHETTE_SORGENTE, MainWindow
 

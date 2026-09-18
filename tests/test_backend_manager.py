@@ -84,3 +84,89 @@ def test_verifica_health_ko_su_porta_chiusa():
     from locallens.backend.manager import verifica_health
 
     assert verifica_health("http://127.0.0.1:9", timeout=1) is False
+
+
+def test_lancio_reale_redirige_stdio_e_registra_proc(monkeypatch):
+    import subprocess
+
+    from locallens.backend.manager import BackendManager
+
+    chiamate = {}
+
+    class ProcFinto:
+        pid = 9999
+
+        def __init__(self, cmd, **kw):
+            chiamate["cmd"] = cmd
+            chiamate.update(kw)
+            self.terminated = False
+            self.waited = False
+
+        def terminate(self):
+            self.terminated = True
+
+        def wait(self, timeout=None):
+            self.waited = True
+            return 0
+
+    monkeypatch.setattr(subprocess, "Popen", ProcFinto)
+    mgr = BackendManager(
+        platform="linux",
+        bins_root="bins",
+        esiste=lambda p: True,
+        porte_occupate=lambda: set(),
+        verifica=lambda url: True,
+    )
+    h = mgr.start("cuda")
+    assert h.pid == 9999
+    assert chiamate["stdin"] == subprocess.DEVNULL
+    assert chiamate["stdout"] == subprocess.DEVNULL
+    assert chiamate["stderr"] == subprocess.DEVNULL
+    # oggetto non abbandonato: registrato per terminate() allo stop
+    assert getattr(mgr, "_proc", None) is not None
+    mgr.stop()
+    assert getattr(mgr, "_proc", None) is None
+    assert mgr.handle is None
+
+
+def test_health_ko_riusa_proc_senza_zombie(monkeypatch):
+    import subprocess
+
+    from locallens.backend.manager import BackendManager
+
+    class ProcFinto:
+        pid = 4242
+
+        def __init__(self, cmd, **kw):
+            self.terminated = False
+            self.waited = False
+
+        def terminate(self):
+            self.terminated = True
+
+        def wait(self, timeout=None):
+            self.waited = True
+            return 0
+
+    creati: list = []
+    orig = ProcFinto.__init__
+
+    def _init(self, cmd, **kw):
+        orig(self, cmd, **kw)
+        creati.append(self)
+
+    monkeypatch.setattr(ProcFinto, "__init__", _init)
+    monkeypatch.setattr(subprocess, "Popen", ProcFinto)
+    mgr = BackendManager(
+        platform="linux",
+        bins_root="bins",
+        esiste=lambda p: True,
+        porte_occupate=lambda: set(),
+        verifica=lambda url: False,
+    )
+    import pytest as _pytest
+
+    with _pytest.raises(RuntimeError):
+        mgr.start("cuda")
+    assert creati and creati[0].terminated and creati[0].waited
+    assert getattr(mgr, "_proc", None) is None

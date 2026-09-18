@@ -1,8 +1,17 @@
 """Avvio/supervisione llama-server bundlato come subprocess."""
-import ipaddress
 from dataclasses import dataclass
 from pathlib import Path
-from urllib.parse import urlparse
+
+from locallens.core.rete import is_url_privata
+
+__all__ = [
+    "BackendHandle",
+    "resolve_binary",
+    "trova_porta_libera",
+    "is_url_privata",
+    "verifica_health",
+    "BackendManager",
+]
 
 
 @dataclass
@@ -29,29 +38,6 @@ def trova_porta_libera(partenza: int = 8011, occupate: set[int] | None = None) -
         if porta not in occupate:
             return porta
     raise OSError("nessuna porta libera in 8011-8020")
-
-
-def is_url_privata(url: str) -> bool:
-    """True se localhost o rete privata RFC1918/loopback (RNF1). False = mostrare avviso esplicito."""
-    host = (urlparse(url).hostname or "").lower().strip("[]")
-    if host in ("localhost",):
-        return True
-    try:
-        ip = ipaddress.ip_address(host)
-    except ValueError:
-        return False
-    if ip.is_loopback:
-        return True
-    reti = [
-        ipaddress.ip_network("10.0.0.0/8"),
-        ipaddress.ip_network("172.16.0.0/12"),
-        ipaddress.ip_network("192.168.0.0/16"),
-        ipaddress.ip_network("127.0.0.0/8"),
-        ipaddress.ip_network("::1/128"),
-        ipaddress.ip_network("fc00::/7"),
-        ipaddress.ip_network("fe80::/10"),
-    ]
-    return any(ip in r for r in reti)
 
 
 def verifica_health(base_url: str, timeout: float = 2) -> bool:
@@ -88,6 +74,7 @@ class BackendManager:
         self._platform = platform
         self._bins_root = bins_root
         self.handle: BackendHandle | None = None
+        self._proc = None
 
         def _esiste(p) -> bool:
             return Path(p).exists()
@@ -102,7 +89,13 @@ class BackendManager:
             return occ
 
         def _lancia(cmd: list[str]) -> int:
-            proc = subprocess.Popen(cmd)
+            proc = subprocess.Popen(
+                cmd,
+                stdin=subprocess.DEVNULL,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+            self._proc = proc
             return proc.pid
 
         def _verifica(url: str) -> bool:
@@ -146,13 +139,44 @@ class BackendManager:
         pid = self._lancia(cmd)
         base_url = f"http://127.0.0.1:{libera}"
         if not self._verifica(base_url):
-            self._uccidi(pid)
+            if self._proc is not None:
+                self._finalizza_proc()
+            else:
+                # Lancia iniettato (solo pid, nessun Popen registrato).
+                self._uccidi(pid)
             raise RuntimeError(f"healthcheck fallito su {base_url} ({backend_gpu})")
         self.handle = BackendHandle(backend_gpu, base_url, libera, pid)
         return self.handle
 
+    def _finalizza_proc(self) -> None:
+        """terminate()+wait sul Popen registrato, senza mai lasciare zombie."""
+        proc, self._proc = self._proc, None
+        if proc is None:
+            return
+        import subprocess as _sp
+
+        try:
+            proc.terminate()
+        except Exception:  # noqa: BLE001 — termina al meglio, poi aspetta
+            pass
+        try:
+            proc.wait(timeout=5)
+        except _sp.TimeoutExpired:
+            try:
+                proc.kill()
+            except Exception:  # noqa: BLE001 — kill best-effort
+                pass
+            try:
+                proc.wait(timeout=5)
+            except Exception:  # noqa: BLE001 — mai bloccare lo start/stop
+                pass
+        except Exception:  # noqa: BLE001 — wait best-effort
+            pass
+
     def stop(self) -> None:
-        if self.handle and self.handle.pid is not None:
+        if self._proc is not None:
+            self._finalizza_proc()
+        elif self.handle and self.handle.pid is not None:
             self._uccidi(self.handle.pid)
         self.handle = None
 

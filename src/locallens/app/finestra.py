@@ -366,11 +366,13 @@ class MainWindow(QMainWindow):
         self.progress.setValue(0)
         self.progress.show()
         self.btn_annulla.setEnabled(True)
+        diario = self._nuovo_diario(documento)
+        job_id = getattr(diario, "job_id", None) or "doc"
         worker = OcrWorker(
-            job_id="doc",
+            job_id=job_id,
             engine=engine,
             immagini=immagini,
-            diario=self._nuovo_diario(documento),
+            diario=diario,
         )
         worker.segnali.pagina.connect(self._on_pagina)
         worker.segnali.finito.connect(self._on_finito)

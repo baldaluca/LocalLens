@@ -3,7 +3,7 @@
 import sys
 
 from locallens.app.lingua import t
-from locallens.backend.manager import is_url_privata
+from locallens.core.rete import is_url_privata
 from locallens.core.orchestrator import solo_cpu as _solo_cpu_default
 
 

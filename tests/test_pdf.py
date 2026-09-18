@@ -54,3 +54,77 @@ def test_render_due_pagine_letter_a_300dpi():
 def test_pdf_vuoto_sollevato():
     with pytest.raises(ValueError):
         render_pagine(b"non-un-pdf", dpi=300)
+
+
+def test_chiude_documento_a_fine_render(monkeypatch):
+    import locallens.preprocessing.pdf as mod_pdf
+
+    chiusure = []
+
+    class PaginaFinta:
+        def render(self, scale=1.0):
+            class Bitmap:
+                def to_pil(self):
+                    from PIL import Image
+
+                    return Image.new("RGB", (8, 8))
+            return Bitmap()
+
+    class DocFinto:
+        def __init__(self, *a, **k):
+            self.chiuso = False
+
+        def __len__(self):
+            return 1
+
+        def __iter__(self):
+            yield PaginaFinta()
+
+        def close(self):
+            self.chiuso = True
+            chiusure.append(True)
+
+    creati: list = []
+
+    def fabbrica(*a, **k):
+        d = DocFinto(*a, **k)
+        creati.append(d)
+        return d
+
+    monkeypatch.setattr(mod_pdf.pdfium, "PdfDocument", fabbrica)
+    out = render_pagine(b"finto", dpi=72)
+    assert len(out) == 1 and out[0][:8] == b"\x89PNG\r\n\x1a\n"
+    assert creati and creati[0].chiuso is True
+
+
+def test_chiude_documento_anche_su_eccezione_pagina(monkeypatch):
+    import locallens.preprocessing.pdf as mod_pdf
+
+    class PaginaRotta:
+        def render(self, scale=1.0):
+            raise RuntimeError("render esploso")
+
+    class DocFinto:
+        def __init__(self, *a, **k):
+            self.chiuso = False
+
+        def __len__(self):
+            return 1
+
+        def __iter__(self):
+            yield PaginaRotta()
+
+        def close(self):
+            self.chiuso = True
+
+    creati: list = []
+
+    def fabbrica(*a, **k):
+        d = DocFinto(*a, **k)
+        creati.append(d)
+        return d
+
+    monkeypatch.setattr(mod_pdf.pdfium, "PdfDocument", fabbrica)
+    with pytest.raises(RuntimeError, match="render esploso"):
+        render_pagine(b"finto", dpi=72)
+    assert creati and creati[0].chiuso is True
