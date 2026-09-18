@@ -58,3 +58,28 @@ def test_contesto_filtro_default_e_valori(qapp):
     assert v["lingue_filtro"] == "it,en"
     assert v["soglia_righe_loop"] == 9
     assert v["ignora_eco"] is True
+
+
+def test_dialogo_applica_tema(qapp):
+    from locallens.app.tema import TEMI
+
+    d = DialogoImpostazioni(preset_ids=["glm-ocr-q8_0"], tema="scuro")
+    assert TEMI["scuro"]["background"] in d.styleSheet()
+    d2 = DialogoImpostazioni(preset_ids=["glm-ocr-q8_0"])
+    assert TEMI["chiaro"]["background"] in d2.styleSheet()
+
+
+def test_dialogo_tema_ignoto_errore(qapp):
+    import pytest
+
+    with pytest.raises(ValueError):
+        DialogoImpostazioni(preset_ids=["glm-ocr-q8_0"], tema="arcobaleno")
+
+
+def test_aiuto_whats_this_sulle_impostazioni_filtro(qapp):
+    from PySide6.QtCore import Qt
+
+    d = DialogoImpostazioni(preset_ids=["glm-ocr-q8_0"])
+    assert d.windowFlags() & Qt.WindowContextHelpButtonHint
+    for campo in (d.lingue, d.soglia, d.ignora_eco):
+        assert campo.whatsThis().strip() != ""

@@ -1,5 +1,6 @@
 """Sorgente modello (RF10) + avviso privacy su URL non locale (RNF1)."""
 
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -11,13 +12,16 @@ from PySide6.QtWidgets import (
     QSpinBox,
 )
 
+from locallens.app.tema import qss
 from locallens.backend.manager import is_url_privata
 
 
 class DialogoImpostazioni(QDialog):
-    def __init__(self, preset_ids: list[str], parent=None) -> None:
+    def __init__(self, preset_ids: list[str], parent=None, tema: str = "chiaro") -> None:
         super().__init__(parent)
         self.setWindowTitle("Impostazioni LocalLens")
+        self.setStyleSheet(qss(tema))  # come la finestra principale (stessi token)
+        self.setWindowFlag(Qt.WindowContextHelpButtonHint, True)
         layout = QFormLayout(self)
 
         self.sorgente = QComboBox()
@@ -34,14 +38,27 @@ class DialogoImpostazioni(QDialog):
         layout.addRow("Preset (auto se invariato)", self.preset)
 
         self.lingue = QLineEdit("it")
+        self.lingue.setWhatsThis(
+            "Lingue ammesse nel testo trascritto, separate da virgola (es. it,en). "
+            "Una Pagina scritta in altre lingue viene scartata e riprocessata con Tesseract."
+        )
         layout.addRow("Lingue filtro (it,en)", self.lingue)
 
         self.soglia = QSpinBox()
         self.soglia.setRange(1, 20)
         self.soglia.setValue(5)
+        self.soglia.setWhatsThis(
+            "Numero minimo di righe identiche oltre il quale l'output del modello "
+            "è considerato un loop degenere. Alzalo su Documenti legittimamente "
+            "ripetitivi (verbali, elenchi)."
+        )
         layout.addRow("Soglia righe loop", self.soglia)
 
         self.ignora_eco = QCheckBox("Istruzioni stampate nella sorgente")
+        self.ignora_eco.setWhatsThis(
+            "Attivalo se le istruzioni di trascrizione sono stampate nel Documento: "
+            "evita che la loro presenza faccia scartare una trascrizione valida."
+        )
         layout.addRow("Ignora eco prompt", self.ignora_eco)
 
         self.avviso = QLabel(

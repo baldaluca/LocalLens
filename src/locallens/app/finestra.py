@@ -252,7 +252,11 @@ class MainWindow(QMainWindow):
         return ids
 
     def _impostazioni(self) -> None:
-        dlg = DialogoImpostazioni(preset_ids=self._preset_ids_disponibili())
+        dlg = DialogoImpostazioni(
+            preset_ids=self._preset_ids_disponibili(),
+            parent=self,
+            tema=self.tema_corrente,
+        )
         dlg.set_sorgente(self.conf.get("sorgente", "bundlato"))
         dlg.set_preset(self.conf.get("preset_id", "") or "lighton-ocr-q8_0")
         dlg.url.setText(self.conf.get("url_esterno", ""))

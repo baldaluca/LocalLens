@@ -219,7 +219,7 @@ def test_impostazioni_ricostruiscono_engine(qapp, monkeypatch, tmp_path):
     viste = {}
 
     class DialogoFinto:
-        def __init__(self, preset_ids=None, parent=None):
+        def __init__(self, preset_ids=None, parent=None, tema="chiaro", **k):
             self.url = type("U", (), {"setText": lambda self, t: None})()
 
         def set_sorgente(self, valore):

@@ -46,7 +46,7 @@ def qss(nome: str) -> str:
     except KeyError:
         raise ValueError(f"tema ignoto: {nome} (chiaro|scuro)") from None
     return f"""
-QMainWindow, QWidget#centrale {{ background: {t['background']}; font-size: 14px; }}
+QMainWindow, QDialog, QWidget#centrale {{ background: {t['background']}; font-size: 14px; }}
 QLabel {{ color: {t['foreground']}; }}
 QLabel#titolo {{ font-size: 18px; font-weight: 700; }}
 QLabel#doc {{ color: {t['muted']}; font-size: 13px; }}
@@ -78,7 +78,8 @@ QProgressBar::chunk {{ background: {t['primary']}; border-radius: 5px; }}
 QSplitter::handle {{ background: {t['border']}; }}
 QSplitter::handle:horizontal {{ width: 6px; }}
 QStatusBar {{ background: {t['surface']}; color: {t['muted']}; }}
-QLineEdit, QComboBox {{ background: {t['input_bg']}; color: {t['foreground']};
+QLineEdit, QComboBox, QSpinBox {{ background: {t['input_bg']}; color: {t['foreground']};
   border: 1px solid {t['border']}; border-radius: 8px; padding: 6px 10px; }}
+QCheckBox {{ color: {t['foreground']}; spacing: 8px; }}
 QLabel#avviso {{ color: #DC2626; }}
 """
