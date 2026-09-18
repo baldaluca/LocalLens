@@ -30,6 +30,8 @@ TESTO_VUOTO = (
     "Sorgenti: file • appunti • screenshot."
 )
 
+ETICHETTE_SORGENTE = {"bundlato": "GPU locale", "esterno": "esterno", "nessuno": "nessuno"}
+
 
 def tempo_breve(ms: int) -> str:
     """Durata umana per liste e separatori: '52 s', '800 ms'."""
@@ -254,11 +256,27 @@ class MainWindow(QMainWindow):
             ids = [corrente, *ids]
         return ids
 
+    def _preset_corrente(self):
+        from locallens.__main__ import _preset_da_conf
+        return _preset_da_conf(self.conf)
+
+    def _gpu_locale_disponibile(self) -> bool:
+        from locallens.core.fabbrica import disponibilita_gpu_locale
+        from locallens.hwdetect.detector import detect
+        try:
+            return disponibilita_gpu_locale(detect(), self._preset_corrente())
+        except Exception:
+            return False
+
     def _impostazioni(self) -> None:
+        from locallens.core.fabbrica import normalizza_sorgente
+        from locallens.hwdetect.detector import detect
+
         dlg = DialogoImpostazioni(
             preset_ids=self._preset_ids_disponibili(),
             parent=self,
             tema=self.tema_corrente,
+            gpu_locale_disponibile=self._gpu_locale_disponibile(),
         )
         dlg.set_sorgente(self.conf.get("sorgente", "bundlato"))
         dlg.set_preset(self.conf.get("preset_id", "") or "lighton-ocr-q8_0")
@@ -270,6 +288,9 @@ class MainWindow(QMainWindow):
         )
         if dlg.exec():
             self.conf.update(dlg.valori())
+            self.conf, avviso = normalizza_sorgente(self.conf, detect(), self._preset_corrente())
+            if avviso:
+                self.mostra_banner(avviso)
             salva_impostazioni(self.conf)
             ric = getattr(self, "_ricostruttore", None)
             if ric is not None:
@@ -389,7 +410,7 @@ class MainWindow(QMainWindow):
 
         t = TEMI[self.tema_corrente]
         colore = t[colori.get(sorgente, "muted")]
-        self.pill.setText(f"<span style='color:{colore}'>●</span> {sorgente} • {preset}")
+        self.pill.setText(f"<span style='color:{colore}'>●</span> {ETICHETTE_SORGENTE.get(sorgente, sorgente)} • {preset}")
 
     def _aggiorna_bottoni(self) -> None:
         ha_testo = bool(self.testo.toPlainText().strip()) and self.testo.toPlainText() != TESTO_VUOTO

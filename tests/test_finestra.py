@@ -262,3 +262,13 @@ def test_avvia_mostra_banner_su_errore(qapp):
     QCoreApplication.processEvents()
     assert not w.banner.isHidden()
     assert "boom" in w.banner.text()
+
+
+def test_pill_mostra_gpu_locale(qapp):
+    from locallens.app.finestra import ETICHETTE_SORGENTE, MainWindow
+
+    assert ETICHETTE_SORGENTE["bundlato"] == "GPU locale"
+    w = MainWindow()
+    w.conf.update({"sorgente": "bundlato", "preset_id": "x"})
+    w.aggiorna_intestazione()
+    assert "GPU locale" in w.pill.text()
