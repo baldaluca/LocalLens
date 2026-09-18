@@ -8,6 +8,7 @@ from pathlib import Path
 DEFAULTS = {
     "sorgente": "bundlato",
     "url_esterno": "http://127.0.0.1:8011",
+    "url_gpu_locale": "http://127.0.0.1:8011",
     "token_esterno": "",
     "modello_esterno": "",
     "prompt_esterno": "Transcribe the document text exactly. No commentary.",

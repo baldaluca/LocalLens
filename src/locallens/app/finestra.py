@@ -264,7 +264,8 @@ class MainWindow(QMainWindow):
             gpu_locale_disponibile=self._gpu_locale_disponibile(),
         )
         dlg.set_sorgente(self.conf.get("sorgente", "bundlato"))
-        dlg.url.setText(self.conf.get("url_esterno", ""))
+        dlg.set_url_esterno(self.conf.get("url_esterno", ""))
+        dlg.set_url_gpu_locale(self.conf.get("url_gpu_locale", self.conf.get("url_esterno", "")))
         dlg.set_cloud(
             self.conf.get("token_esterno", ""),
             self.conf.get("modello_esterno", ""),
@@ -390,7 +391,7 @@ class MainWindow(QMainWindow):
         """Pill motore in linguaggio umano: '● GPU locale • http://...'."""
         sorgente = self.conf.get("sorgente", "bundlato")
         if sorgente == "bundlato":
-            dettaglio = self.conf.get("url_esterno", "") or "—"
+            dettaglio = self.conf.get("url_gpu_locale") or self.conf.get("url_esterno", "") or "—"
         elif sorgente == "esterno":
             dettaglio = self.conf.get("modello_esterno", "") or self.conf.get("preset_id", "") or "—"
         else:

@@ -55,10 +55,12 @@ class DialogoImpostazioni(QDialog):
         self.sorgente.currentTextChanged.connect(lambda _: self._aggiorna_viste())
         layout.addRow("Sorgente modello", self.sorgente)
 
-        self.etichetta_url = QLabel("URL server esterno")
+        self.etichetta_url = QLabel("URL server")
         self.url = QLineEdit("http://127.0.0.1:8011")
         self.url.textChanged.connect(lambda _: self._aggiorna_avviso())
         layout.addRow(self.etichetta_url, self.url)
+        self._url_memoria = {"bundlato": self.url.text(), "esterno": self.url.text()}
+        self._opzione_precedente = self._id_corrente()
 
         self.etichetta_token = QLabel("Token API")
         self.token = QLineEdit()
@@ -119,6 +121,16 @@ class DialogoImpostazioni(QDialog):
                 self.sorgente.setCurrentText(etichetta)
                 return
 
+    def set_url_esterno(self, valore: str) -> None:
+        self._url_memoria["esterno"] = valore
+        if self._id_corrente() == "esterno":
+            self.url.setText(valore)
+
+    def set_url_gpu_locale(self, valore: str) -> None:
+        self._url_memoria["bundlato"] = valore
+        if self._id_corrente() == "bundlato":
+            self.url.setText(valore)
+
     def set_cloud(self, token: str = "", modello: str = "", prompt: str = "") -> None:
         self.token.setText(token)
         self.modello.setText(modello)
@@ -153,8 +165,17 @@ class DialogoImpostazioni(QDialog):
         return bottone, spiega
 
     def _aggiorna_viste(self) -> None:
-        """Esterno = URL+cloud; nessuno = niente URL né cloud; altre = solo URL."""
+        """Esterno = URL+cloud; nessuno = niente URL né cloud; altre = solo URL.
+
+        Il campo URL ha una memoria per opzione: cambiando voce il valore
+        corrente viene parcheggiato e ricaricato l'ultimo della nuova voce.
+        """
+        if self._opzione_precedente in self._url_memoria:
+            self._url_memoria[self._opzione_precedente] = self.url.text()
         ident = self._id_corrente()
+        self._opzione_precedente = ident
+        if ident in self._url_memoria:
+            self.url.setText(self._url_memoria[ident])
         mostra_url = ident != "nessuno"
         mostra_cloud = ident == "esterno"
         self.etichetta_url.setVisible(mostra_url)
@@ -179,9 +200,12 @@ class DialogoImpostazioni(QDialog):
     def valori(self) -> dict:
         scelta = self.sorgente.currentText()
         ident = next(ident for etichetta, ident in VOCI_SORGENTE if etichetta == scelta)
+        if ident in self._url_memoria:
+            self._url_memoria[ident] = self.url.text()
         return {
             "sorgente": ident,
-            "url_esterno": self.url.text(),
+            "url_esterno": self._url_memoria["esterno"],
+            "url_gpu_locale": self._url_memoria["bundlato"],
             "token_esterno": self.token.text().strip(),
             "modello_esterno": self.modello.text().strip(),
             "prompt_esterno": self.prompt.toPlainText().strip(),

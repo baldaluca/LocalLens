@@ -157,3 +157,19 @@ def test_campi_cloud_sopravvivono_ai_cambi_opzione(qapp):
     assert d.token.text() == "tk"
     assert d.modello.text() == "vision-x"
     assert d.prompt.toPlainText() == "Leggi."
+
+
+def test_url_distinti_per_opzione(qapp):
+    d = DialogoImpostazioni()
+    d.set_sorgente("esterno")
+    d.url.setText("http://cloud:8000")
+    d.set_sorgente("bundlato")
+    assert d.url.text() != "http://cloud:8000"
+    d.url.setText("http://127.0.0.1:10000")
+    d.set_sorgente("esterno")
+    assert d.url.text() == "http://cloud:8000"
+    d.set_sorgente("bundlato")
+    assert d.url.text() == "http://127.0.0.1:10000"
+    v = d.valori()
+    assert v["url_esterno"] == "http://cloud:8000"
+    assert v["url_gpu_locale"] == "http://127.0.0.1:10000"

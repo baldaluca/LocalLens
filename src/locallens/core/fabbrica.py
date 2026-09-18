@@ -95,7 +95,7 @@ def costruisci(conf, info, preset, gestore=None, crea=None, solo_cpu=None, pesi=
         )
 
     # bundlato = GPU locale: usa il server all'URL configurato, senza avviare binari.
-    url = conf.get("url_esterno", "http://127.0.0.1:8011")
+    url = conf.get("url_gpu_locale") or conf.get("url_esterno", "http://127.0.0.1:8011")
     if verifica(url):
         return (
             crea(

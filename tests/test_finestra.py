@@ -217,7 +217,10 @@ def test_impostazioni_ricostruiscono_engine(qapp, monkeypatch, tmp_path):
         def set_sorgente(self, valore):
             pass
 
-        def set_preset(self, valore):
+        def set_url_esterno(self, valore):
+            pass
+
+        def set_url_gpu_locale(self, valore):
             pass
 
         def set_contesto(self, lingue="it", soglia=5, ignora_eco=False):
