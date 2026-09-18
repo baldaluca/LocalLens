@@ -464,3 +464,14 @@ def test_banner_runtime_in_inglese(qapp):
     assert w.banner.text() == t("en", "banner_annullamento")
     w.mostra_estrazioni(_estrazioni())
     assert w.banner.text() == t("en", "banner_fallback_cpu", id=2)
+
+
+def test_avvia_pulisce_lista_pagine_precedenti(qapp, monkeypatch):
+    from locallens.app import finestra as F
+    from locallens.app.finestra import MainWindow
+
+    monkeypatch.setattr(F.QThreadPool, "globalInstance", lambda: type("P", (), {"start": lambda self, w: None})())
+    w = MainWindow()
+    w.lista.addItem("Pagina 1 • bundlato • 37 s")
+    w.avvia([b"x"], engine=object(), documento="nuovo.pdf")
+    assert w.lista.count() == 0

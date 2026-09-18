@@ -353,6 +353,7 @@ class MainWindow(QMainWindow):
 
         self.nascondi_banner()
         self._correnti = []
+        self.lista.clear()
         nome = (
             os.path.basename(documento)
             if documento
