@@ -130,4 +130,4 @@ def test_crea_engine_cloud_usa_modello_prompt_token():
     assert job.estrazioni[0].motore_usato == "esterno"
     assert visti["payload"]["model"] == "vision-x"
     assert "Leggi tutto." in visti["payload"]["messages"][0]["content"]
-    assert visti["url"] == "http://cloud:8000/v1/chat/completions"
+    assert visti["url"] == "http://cloud:8000"

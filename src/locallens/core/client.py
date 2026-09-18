@@ -41,13 +41,13 @@ def parse_chat_text(risposta: dict) -> str:
 
 
 def invia_chat(
-    base_url: str,
+    url: str,
     payload: dict,
     post: Callable[[str, dict], dict] | None = None,
     timeout: int = 600,
     token: str | None = None,
 ) -> str:
-    url = base_url.rstrip("/") + "/v1/chat/completions"
+    """POST all'URL così com'è: nessuna desinenza aggiunta (vale per cloud e locali)."""
     try:
         if post is None:
             headers = {"Content-Type": "application/json"}

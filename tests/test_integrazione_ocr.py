@@ -32,7 +32,7 @@ def test_ocr_immagine_gold():
         preset.prompt.get("system", "Transcribe."),
         preset.id,
     )
-    testo = invia_chat(url, payload)
+    testo = invia_chat(url.rstrip("/") + "/v1/chat/completions", payload)
     assert "LocalLens OCR test" in testo
     assert "1234567890" in testo
     assert "42,00 euro" in testo

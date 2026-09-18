@@ -149,7 +149,8 @@ def crea_engine(
             base64.b64encode(pronta).decode(), prompt, preset.id,
             max_tokens=preset.max_tokens,
         )
-        return invia_chat(base_url, payload, post=post, timeout=timeout), motore
+        endpoint = base_url.rstrip("/") + "/v1/chat/completions"
+        return invia_chat(endpoint, payload, post=post, timeout=timeout), motore
 
     def fb_default(_pagina_id: int, png: bytes) -> str:
         return tesseract_estrai(png)

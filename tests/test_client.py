@@ -66,10 +66,10 @@ def test_invia_mappa_errore_http():
 
 def test_invia_ok():
     def post_ok(url, payload):
-        assert url.endswith("/v1/chat/completions")
+        assert url == "http://127.0.0.1:8011/v1/chat/completions"
         return {"choices": [{"message": {"content": "ok"}}]}
 
-    assert invia_chat("http://127.0.0.1:8011", {"model": "x"}, post=post_ok) == "ok"
+    assert invia_chat("http://127.0.0.1:8011/v1/chat/completions", {"model": "x"}, post=post_ok) == "ok"
 
 
 def test_invia_chat_con_token_mette_bearer(monkeypatch):
