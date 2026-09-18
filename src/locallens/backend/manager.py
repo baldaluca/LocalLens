@@ -1,6 +1,5 @@
 """Avvio/supervisione llama-server bundlato come subprocess."""
 import ipaddress
-import time
 from dataclasses import dataclass
 from pathlib import Path
 from urllib.parse import urlparse
@@ -125,14 +124,8 @@ class BackendManager:
         porta: int = 8011,
         modello: str = "",
         mmproj: str = "",
-        attesa_max: float = 120,
     ) -> BackendHandle:
-        """Avvia bins/<os>/<backend>/llama-server sulla prima porta libera.
-
-        Attende il caricamento pesi con healthcheck ripetuto fino a
-        attesa_max secondi: un solo controllo ucciderebbe un server sano
-        ma lento (il caricamento supera sempre i 2s del singolo check).
-        """
+        """Avvia bins/<os>/<backend>/llama-server sulla prima porta libera, con healthcheck."""
         binario = resolve_binary(self._platform, backend_gpu, self._bins_root)
         if not self._esiste(binario):
             raise FileNotFoundError(f"binario mancante: {binario}")
@@ -145,14 +138,9 @@ class BackendManager:
             cmd = preset_to_argv(preset, str(binario), modello, mmproj, libera)
         pid = self._lancia(cmd)
         base_url = f"http://127.0.0.1:{libera}"
-        inizio = time.monotonic()
-        while True:
-            if self._verifica(base_url):
-                break
-            if time.monotonic() - inizio >= attesa_max:
-                self._uccidi(pid)
-                raise RuntimeError(f"healthcheck fallito su {base_url} ({backend_gpu})")
-            time.sleep(2)
+        if not self._verifica(base_url):
+            self._uccidi(pid)
+            raise RuntimeError(f"healthcheck fallito su {base_url} ({backend_gpu})")
         self.handle = BackendHandle(backend_gpu, base_url, libera, pid)
         return self.handle
 
