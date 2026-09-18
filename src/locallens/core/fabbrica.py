@@ -10,9 +10,9 @@ from locallens.core.rete import is_url_privata, resolve_binary, verifica_health
 def _contesto(conf) -> dict:
     """Contesto filtro anti-self-hit: stringa TOML "it,en" → tupla per crea_engine."""
     lingue = tuple(
-        l.strip()
-        for l in str(conf.get("lingue_filtro", "it")).split(",")
-        if l.strip()
+        lingua.strip()
+        for lingua in str(conf.get("lingue_filtro", "it")).split(",")
+        if lingua.strip()
     ) or ("it",)
     return {
         "lingue_attese": lingue,
@@ -69,33 +69,40 @@ def costruisci(conf, info, preset, gestore=None, crea=None, solo_cpu=None, pesi=
 
     if sorgente == "esterno":
         url = conf.get("url_esterno", "http://127.0.0.1:8011")
-        banner = "" if is_url_privata(url) else t(lingua, "banner_privacy_url")
         modello = (conf.get("modello_esterno") or "").strip()
-        if modello:
-            # Cloud tutto a mano: token+modello+prompt, nessun preset.
-            if crea_cloud is None:
-                from locallens.core.orchestrator import crea_engine_cloud as _crea_cloud
-
-                crea_cloud = _crea_cloud
-            engine = crea_cloud(
-                url,
-                modello=modello,
-                prompt=conf.get("prompt_esterno", ""),
-                token=(conf.get("token_esterno") or "").strip(),
-                max_side=conf.get("max_side_px", 2048),
-                contrasto=conf.get("contrasto", False),
-                **_contesto(conf),
+        token = (conf.get("token_esterno") or "").strip()
+        manca_modello = not modello
+        manca_token = not token
+        if manca_modello or manca_token:
+            if solo_cpu is None:
+                solo_cpu = _solo_cpu_default
+            if manca_modello and manca_token:
+                motivo = t(lingua, "motivo_esterno_manca_modello_token")
+            elif manca_modello:
+                motivo = t(lingua, "motivo_esterno_manca_modello")
+            else:
+                motivo = t(lingua, "motivo_esterno_manca_token")
+            return (
+                solo_cpu(motivo),
+                t(lingua, "stato_esterno_non_configurato"),
+                t(lingua, "banner_esterno_non_configurato"),
             )
-            return engine, f"esterno • {url}", banner
-        engine = crea(
+        banner = "" if is_url_privata(url) else t(lingua, "banner_privacy_url")
+        # Cloud tutto a mano: token+modello+prompt, nessun preset.
+        if crea_cloud is None:
+            from locallens.core.orchestrator import crea_engine_cloud as _crea_cloud
+
+            crea_cloud = _crea_cloud
+        engine = crea_cloud(
             url,
-            preset,
-            motore="esterno",
+            modello=modello,
+            prompt=conf.get("prompt_esterno", ""),
+            token=token,
             max_side=conf.get("max_side_px", 2048),
             contrasto=conf.get("contrasto", False),
             **_contesto(conf),
         )
-        return engine, t(lingua, "stato_esterno", url=url), banner
+        return engine, f"esterno • {url}", banner
 
     if sorgente == "nessuno":
         if solo_cpu is None:

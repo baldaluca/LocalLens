@@ -17,17 +17,30 @@ def _finte():
 
 def test_esterno_punta_a_url():
     preset = load_preset("presets/glm-ocr-q8_0.toml")
-    conf = {"sorgente": "esterno", "url_esterno": "http://127.0.0.1:8011"}
-    crea = lambda url, p, motore, **k: ("engine", url, motore)
-    eng, _stato, banner = costruisci(conf, _info(), preset, crea=crea)
-    assert eng == ("engine", "http://127.0.0.1:8011", "esterno")
+    conf = {
+        "sorgente": "esterno",
+        "url_esterno": "http://127.0.0.1:8011",
+        "modello_esterno": "vision-x",
+        "token_esterno": "tk-segreto",
+    }
+
+    def crea_cloud(url, **k):
+        return ("engine-cloud", url)
+
+    eng, _stato, banner = costruisci(conf, _info(), preset, crea_cloud=crea_cloud)
+    assert eng == ("engine-cloud", "http://127.0.0.1:8011")
     assert banner == ""
 
 
 def test_esterno_pubblico_avvisa():
     preset = load_preset("presets/glm-ocr-q8_0.toml")
-    conf = {"sorgente": "esterno", "url_esterno": "http://203.0.113.10:8011"}
-    _eng, _stato, banner = costruisci(conf, _info(), preset, crea=lambda u, p, motore, **k: u)
+    conf = {
+        "sorgente": "esterno",
+        "url_esterno": "http://203.0.113.10:8011",
+        "modello_esterno": "vision-x",
+        "token_esterno": "tk-segreto",
+    }
+    _eng, _stato, banner = costruisci(conf, _info(), preset, crea_cloud=lambda u, **k: u)
     assert banner != ""
 
 
@@ -85,17 +98,19 @@ def test_esterno_trasmette_contesto_filtro():
     conf = {
         "sorgente": "esterno",
         "url_esterno": "http://127.0.0.1:8011",
+        "modello_esterno": "vision-x",
+        "token_esterno": "tk-segreto",
         "lingue_filtro": "it,en",
         "soglia_righe_loop": 9,
         "ignora_eco": True,
     }
     viste = {}
 
-    def crea(url, p, motore, **k):
+    def crea_cloud(url, **k):
         viste.update(k)
         return "engine"
 
-    costruisci(conf, _info(), preset, crea=crea)
+    costruisci(conf, _info(), preset, crea_cloud=crea_cloud)
     assert viste["lingue_attese"] == ("it", "en")
     assert viste["soglia_righe_loop"] == 9
     assert viste["ignora_eco"] is True
@@ -103,14 +118,19 @@ def test_esterno_trasmette_contesto_filtro():
 
 def test_contesto_default_senza_chiavi():
     preset = load_preset("presets/glm-ocr-q8_0.toml")
-    conf = {"sorgente": "esterno", "url_esterno": "http://127.0.0.1:8011"}
+    conf = {
+        "sorgente": "esterno",
+        "url_esterno": "http://127.0.0.1:8011",
+        "modello_esterno": "vision-x",
+        "token_esterno": "tk-segreto",
+    }
     viste = {}
 
-    def crea(url, p, motore, **k):
+    def crea_cloud(url, **k):
         viste.update(k)
         return "engine"
 
-    costruisci(conf, _info(), preset, crea=crea)
+    costruisci(conf, _info(), preset, crea_cloud=crea_cloud)
     assert viste["lingue_attese"] == ("it",)
     assert viste["soglia_righe_loop"] == 5
     assert viste["ignora_eco"] is False
@@ -202,12 +222,102 @@ def test_esterno_cloud_usa_token_modello_prompt():
     assert banner == ""
 
 
-def test_esterno_senza_modello_resta_preset():
+def test_esterno_senza_modello_solo_cpu_con_banner_guida():
+    """Senza modello_esterno → niente engine remoto, solo CPU + guida."""
+    from locallens.app.lingua import t
+
     preset = load_preset("presets/glm-ocr-q8_0.toml")
-    conf = {"sorgente": "esterno", "url_esterno": "http://127.0.0.1:8011"}
-    crea = lambda url, p, motore, **k: ("engine", url, motore)
-    eng, _stato, _banner = costruisci(conf, _info(), preset, crea=crea)
-    assert eng == ("engine", "http://127.0.0.1:8011", "esterno")
+    conf = {
+        "sorgente": "esterno",
+        "url_esterno": "http://127.0.0.1:8011",
+        "token_esterno": "tk-segreto",
+    }
+
+    def _crea_mai(url, p, motore, **k):
+        raise AssertionError("il ramo preset-per-esterno è stato rimosso")
+
+    def _crea_cloud_mai(url, **k):
+        raise AssertionError("senza modello non si costruisce alcun engine remoto")
+
+    eng, stato, banner = costruisci(
+        conf, _info(), preset,
+        crea=_crea_mai, crea_cloud=_crea_cloud_mai,
+        solo_cpu=lambda motivo: f"cpu:{motivo}",
+    )
+    assert eng == f"cpu:{t('it', 'motivo_esterno_manca_modello')}"
+    assert "modello" in eng.lower()
+    assert stato == t("it", "stato_esterno_non_configurato")
+    assert "127.0.0.1" not in stato  # non finge un server attivo
+    assert banner == t("it", "banner_esterno_non_configurato")
+
+
+def test_esterno_token_mancante_solo_cpu_con_banner_guida():
+    """Senza token_esterno → niente engine remoto, solo CPU + guida."""
+    from locallens.app.lingua import t
+
+    preset = load_preset("presets/glm-ocr-q8_0.toml")
+    conf = {
+        "sorgente": "esterno",
+        "url_esterno": "http://127.0.0.1:8011",
+        "modello_esterno": "vision-x",
+        "token_esterno": "   ",
+    }
+
+    def _crea_cloud_mai(url, **k):
+        raise AssertionError("senza token non si costruisce alcun engine remoto")
+
+    eng, stato, banner = costruisci(
+        conf, _info(), preset,
+        crea_cloud=_crea_cloud_mai,
+        solo_cpu=lambda motivo: f"cpu:{motivo}",
+    )
+    assert eng == f"cpu:{t('it', 'motivo_esterno_manca_token')}"
+    assert "token" in eng.lower()
+    assert stato == t("it", "stato_esterno_non_configurato")
+    assert banner == t("it", "banner_esterno_non_configurato")
+
+
+def test_esterno_senza_modello_e_token_solo_cpu_menziona_entrambi():
+    """Mancano entrambi → il motivo cita modello e token."""
+    from locallens.app.lingua import t
+
+    preset = load_preset("presets/glm-ocr-q8_0.toml")
+    for lingua in ("it", "en"):
+        conf = {"sorgente": "esterno", "url_esterno": "http://127.0.0.1:8011", "lingua": lingua}
+        eng, stato, banner = costruisci(
+            conf, _info(), preset,
+            crea_cloud=lambda u, **k: (_ for _ in ()).throw(AssertionError("mai")),
+            solo_cpu=lambda motivo: f"cpu:{motivo}",
+        )
+        assert eng == f"cpu:{t(lingua, 'motivo_esterno_manca_modello_token')}"
+        assert "modello" in eng.lower() or "model" in eng.lower()
+        assert "token" in eng.lower()
+        assert stato == t(lingua, "stato_esterno_non_configurato")
+        assert banner == t(lingua, "banner_esterno_non_configurato")
+
+
+def test_esterno_configurato_costruisce_cloud():
+    """Entrambi presenti → cloud come prima (Bearer via crea_engine_cloud)."""
+    preset = load_preset("presets/glm-ocr-q8_0.toml")
+    conf = {
+        "sorgente": "esterno",
+        "url_esterno": "http://127.0.0.1:8000",
+        "token_esterno": "tk-segreto",
+        "modello_esterno": "vision-x",
+        "prompt_esterno": "Leggi tutto.",
+    }
+    viste = {}
+
+    def crea_cloud(url, **k):
+        viste.update(url=url, **k)
+        return "engine-cloud"
+
+    eng, stato, banner = costruisci(conf, _info(), preset, crea_cloud=crea_cloud)
+    assert eng == "engine-cloud"
+    assert viste["modello"] == "vision-x"
+    assert viste["token"] == "tk-segreto"
+    assert stato == "esterno • http://127.0.0.1:8000"
+    assert banner == ""
 
 
 def test_normalizza_banner_inglese_e_default_italiano(monkeypatch):
@@ -227,10 +337,17 @@ def test_costruisci_esterno_banner_privacy_inglese():
     from locallens.app.lingua import t
 
     preset = load_preset("presets/glm-ocr-q8_0.toml")
-    conf = {"sorgente": "esterno", "url_esterno": "http://203.0.113.10:8011", "lingua": "en"}
-    _eng, stato, banner = costruisci(conf, _info(), preset, crea=lambda u, p, motore, **k: u)
+    conf = {
+        "sorgente": "esterno",
+        "url_esterno": "http://203.0.113.10:8011",
+        "lingua": "en",
+        "modello_esterno": "vision-x",
+        "token_esterno": "tk-segreto",
+    }
+    _eng, stato, banner = costruisci(
+        conf, _info(), preset, crea_cloud=lambda u, **k: u
+    )
     assert banner == t("en", "banner_privacy_url")
-    assert stato == t("en", "stato_esterno", url="http://203.0.113.10:8011")
 
 
 def test_costruisci_nessuno_stato_inglese_e_default():

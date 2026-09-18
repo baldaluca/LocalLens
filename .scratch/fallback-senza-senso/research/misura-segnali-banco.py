@@ -1,4 +1,6 @@
-import json, re, zlib
+import json
+import re
+import zlib
 from collections import Counter
 import sys
 sys.path.insert(0, 'src')
