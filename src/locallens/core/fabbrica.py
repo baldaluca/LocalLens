@@ -30,6 +30,16 @@ def disponibilita_gpu_locale(info, preset, piattaforma=None, bins_root=None, cac
     return binario.is_file() and snapshot_completo(preset, cache_root) is not None
 
 
+def normalizza_sorgente(conf, info, preset, **rileva_kw) -> tuple[dict, str | None]:
+    """Se il config chiede bundlato ma la GPU locale non è rilevata, ripiega su esterno."""
+    if conf.get("sorgente", "bundlato") == "bundlato" and not disponibilita_gpu_locale(
+        info, preset, **rileva_kw
+    ):
+        nuova = dict(conf, sorgente="esterno")
+        return nuova, "GPU locale non rilevata (binari o pesi assenti): uso il server esterno."
+    return conf, None
+
+
 def costruisci(conf, info, preset, gestore=None, crea=None, solo_cpu=None, pesi=None):
     """(engine, stato, banner). Dipendenze iniettabili; default = reali."""
     from locallens.core.orchestrator import crea_engine as _crea

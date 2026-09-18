@@ -132,6 +132,28 @@ def test_disponibilita_solo_se_binario_e_pesi(tmp_path):
     )
 
 
+def test_normalizza_ripiega_su_esterno_se_gpu_assente(monkeypatch):
+    import locallens.core.fabbrica as fab
+    from locallens.core.fabbrica import normalizza_sorgente
+
+    monkeypatch.setattr(fab, "disponibilita_gpu_locale", lambda *a, **k: False)
+    preset = load_preset("presets/glm-ocr-q8_0.toml")
+    conf = {"sorgente": "bundlato"}
+    nuova, banner = normalizza_sorgente(conf, _info(), preset)
+    assert nuova["sorgente"] == "esterno"
+    assert "GPU locale non rilevata" in banner
+
+
+def test_normalizza_lascia_esterno_e_nessuno():
+    from locallens.core.fabbrica import normalizza_sorgente
+
+    preset = load_preset("presets/glm-ocr-q8_0.toml")
+    for sorg in ("esterno", "nessuno"):
+        nuova, banner = normalizza_sorgente({"sorgente": sorg}, _info(), preset)
+        assert nuova["sorgente"] == sorg
+        assert banner is None
+
+
 def test_disponibilita_quattro_combinazioni(tmp_path, monkeypatch):
     import locallens.core.fabbrica as fab
 
