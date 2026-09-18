@@ -86,6 +86,15 @@ def test_verifica_health_ko_su_porta_chiusa():
     assert verifica_health("http://127.0.0.1:9", timeout=1) is False
 
 
+def test_verifica_health_url_malformato_ritorna_false():
+    """MINOR 11 RED: URL malformato non deve sollevare, deve ritornare False."""
+    from locallens.backend.manager import verifica_health
+
+    assert verifica_health("://malformato", timeout=1) is False
+    assert verifica_health("http://", timeout=1) is False
+    assert verifica_health("", timeout=1) is False
+
+
 def test_lancio_reale_redirige_stdio_e_registra_proc(monkeypatch):
     import subprocess
 

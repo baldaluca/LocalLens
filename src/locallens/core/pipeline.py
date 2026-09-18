@@ -142,6 +142,8 @@ def _motivo_anomalia(
         quota_en = sum(1 for w in parole_alpha if w in _STOP_EN) / len(parole_alpha)
         if quota_en - quota_it > 0.10 and "en" not in lingue_attese:
             _segnala("output anomalo: lingua inattesa", 1.0)
+        if quota_it - quota_en > 0.10 and "it" not in lingue_attese:
+            _segnala("output anomalo: lingua inattesa", 1.0)
     for marcatore in _MARCATORI_FORTI:
         if marcatore in minuscolo:
             _segnala(f"output anomalo: meta-discorso ({marcatore})", 1.0)

@@ -461,3 +461,53 @@ def test_fallback_sostanzioso_nessun_avviso():
 
     out = elabora_pagine([b"img1"], infer=infer, fallback=fallback, sorgente="bundlato")
     assert "debole" not in (out[0].nota or "")
+
+
+def test_lingua_italiana_inattesa_con_attesa_en_va_in_fallback():
+    """FIX 7: testo tutto-italiano con lingue_attese=('en',) deve essere anomalo."""
+    italiano = (
+        "La relazione trimestrale mostra la crescita dei ricavi con una distribuzione capillare. "
+        "Il consiglio ha approvato il bilancio per il prossimo esercizio con il voto dei presenti. "
+        "I costi operativi sono rimasti stabili mentre le assunzioni sono continuate con regolarita. "
+        "La societa prevede una domanda piu sostenuta nella seconda parte quando il mercato riparte. "
+        "Il flusso di cassa copre gli investimenti con margini solidi e riduce il debito. "
+        "La direzione presentera le nuove linee guida durante il prossimo incontro con gli analisti e gli investitori."
+    )
+
+    def infer(pagina_id, _img):
+        return (italiano, "esterno")
+
+    def fallback(pagina_id, _img):
+        return "recuperato-tesseract"
+
+    out = elabora_pagine(
+        [b"img1"], infer=infer, fallback=fallback,
+        sorgente="bundlato", lingue_attese=("en",),
+    )
+    assert out[0].motore_usato == "cpu-tesseract"
+    assert "lingua" in (out[0].nota or "")
+
+
+def test_lingua_inglese_inattesa_con_attesa_it_esplicita_va_in_fallback():
+    """FIX 7 simmetrico: testo inglese con lingue_attese=('it',) esplicita resta anomalo."""
+    inglese = (
+        "The quarterly report shows revenue growth across all regions. "
+        "The board approved the budget for the next fiscal year. "
+        "Operating costs remained stable while hiring continued in engineering and sales. "
+        "The company expects stronger demand in the second half of the year. "
+        "Cash flow from operations covered capital expenditure and debt repayment. "
+        "Management will present updated guidance during the next earnings call with analysts and investors."
+    )
+
+    def infer(pagina_id, _img):
+        return (inglese, "esterno")
+
+    def fallback(pagina_id, _img):
+        return "recuperato-tesseract"
+
+    out = elabora_pagine(
+        [b"img1"], infer=infer, fallback=fallback,
+        sorgente="bundlato", lingue_attese=("it",),
+    )
+    assert out[0].motore_usato == "cpu-tesseract"
+    assert "lingua" in (out[0].nota or "")

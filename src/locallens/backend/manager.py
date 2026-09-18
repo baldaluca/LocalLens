@@ -47,7 +47,7 @@ def verifica_health(base_url: str, timeout: float = 2) -> bool:
     try:
         with urllib.request.urlopen(base_url.rstrip("/") + "/health", timeout=timeout) as r:
             return r.status == 200
-    except OSError:
+    except (OSError, ValueError):
         return False
 
 
