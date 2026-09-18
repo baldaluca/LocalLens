@@ -41,6 +41,14 @@ class DialogoImpostazioni(QDialog):
         self.setWindowFlag(Qt.WindowContextHelpButtonHint, True)  # type: ignore[attr-defined]  # stub: enum spostato in Qt.WindowType, a runtime ancora esposto su Qt
         layout = QFormLayout(self)
 
+        self.etichetta_lingua = QLabel(t(lingua, "etichetta_lingua"))
+        self.selettore_lingua = QComboBox()
+        self.selettore_lingua.addItems(
+            [t(lingua, "lingua_nome_it"), t(lingua, "lingua_nome_en")]
+        )
+        self.selettore_lingua.setCurrentIndex(_ID_LINGUE.index(self._lingua))
+        layout.addRow(self.etichetta_lingua, self.selettore_lingua)
+
         self.sorgente = QComboBox()
         self._sorgente_ids = [
             ident for ident in _ID_SORGENTI
@@ -50,14 +58,6 @@ class DialogoImpostazioni(QDialog):
         self.sorgente.currentTextChanged.connect(lambda _: self._aggiorna_avviso())
         self.sorgente.currentTextChanged.connect(lambda _: self._aggiorna_viste())
         layout.addRow(t(lingua, "etichetta_sorgente"), self.sorgente)
-
-        self.etichetta_lingua = QLabel(t(lingua, "etichetta_lingua"))
-        self.selettore_lingua = QComboBox()
-        self.selettore_lingua.addItems(
-            [t(lingua, "lingua_nome_it"), t(lingua, "lingua_nome_en")]
-        )
-        self.selettore_lingua.setCurrentIndex(_ID_LINGUE.index(self._lingua))
-        layout.addRow(self.etichetta_lingua, self.selettore_lingua)
 
         self.etichetta_url = QLabel(t(lingua, "etichetta_url"))
         self.url = QLineEdit("http://127.0.0.1:8011")

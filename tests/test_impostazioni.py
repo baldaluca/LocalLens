@@ -226,3 +226,15 @@ def test_token_placeholder_tooltip_tradotti(qapp):
     d_it = DialogoImpostazioni(lingua="it")
     assert d_it.token.placeholderText() == STRINGS["it"]["token_placeholder"]
     assert d_it.token.toolTip() == STRINGS["it"]["token_tooltip"]
+
+
+def test_lingua_e_prima_riga_del_dialogo(qapp):
+    from PySide6.QtWidgets import QFormLayout
+
+    from locallens.app.impostazioni import DialogoImpostazioni
+
+    dlg = DialogoImpostazioni()
+    layout = dlg.layout()
+    assert isinstance(layout, QFormLayout)
+    assert layout.itemAt(0, QFormLayout.ItemRole.LabelRole).widget() is dlg.etichetta_lingua
+    assert layout.itemAt(0, QFormLayout.ItemRole.FieldRole).widget() is dlg.selettore_lingua
