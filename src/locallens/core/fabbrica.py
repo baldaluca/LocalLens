@@ -1,5 +1,7 @@
 """Scelta SorgenteModello dietro la stessa interfaccia client (RF10)."""
 
+import sys
+
 from locallens.backend.manager import is_url_privata
 
 
@@ -15,6 +17,17 @@ def _contesto(conf) -> dict:
         "soglia_righe_loop": int(conf.get("soglia_righe_loop", 5)),
         "ignora_eco": bool(conf.get("ignora_eco", False)),
     }
+
+
+def disponibilita_gpu_locale(info, preset, piattaforma=None, bins_root=None, cache_root=None) -> bool:
+    """True se la GPU locale è davvero usabile: binario + pesi presenti. Nessun download."""
+    from locallens.backend.manager import resolve_binary
+    from locallens.config.pesi import snapshot_completo
+
+    if not info.candidati:
+        return False
+    binario = resolve_binary(piattaforma or sys.platform, info.candidati[0], bins_root)
+    return binario.is_file() and snapshot_completo(preset, cache_root) is not None
 
 
 def costruisci(conf, info, preset, gestore=None, crea=None, solo_cpu=None, pesi=None):

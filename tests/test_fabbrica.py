@@ -115,3 +115,42 @@ def test_contesto_default_senza_chiavi():
     assert viste["lingue_attese"] == ("it",)
     assert viste["soglia_righe_loop"] == 5
     assert viste["ignora_eco"] is False
+
+
+def test_disponibilita_solo_se_binario_e_pesi(tmp_path):
+    from locallens.core.fabbrica import disponibilita_gpu_locale
+
+    preset = load_preset("presets/glm-ocr-q8_0.toml")
+    (tmp_path / "linux" / "cuda").mkdir(parents=True)
+    (tmp_path / "linux" / "cuda" / "llama-server").write_text("x")
+    # Ermetico: bins_root vuota → binario assente → False (l'env reale ha binario+pesi).
+    assert (
+        disponibilita_gpu_locale(
+            _info(), preset, piattaforma="linux", bins_root=tmp_path / "vuota"
+        )
+        is False
+    )
+
+
+def test_disponibilita_quattro_combinazioni(tmp_path, monkeypatch):
+    import locallens.core.fabbrica as fab
+
+    preset = load_preset("presets/glm-ocr-q8_0.toml")
+    binario = tmp_path / "linux" / "cuda" / "llama-server"
+    monkeypatch.setattr(fab.sys, "platform", "linux")
+    casi = [
+        (False, None, False),
+        (True, None, False),
+        (False, tmp_path / "snap", False),
+        (True, tmp_path / "snap", True),
+    ]
+    for ha_binario, snap, atteso in casi:
+        if ha_binario:
+            binario.parent.mkdir(parents=True, exist_ok=True)
+            binario.write_text("x")
+        elif binario.is_file():
+            binario.unlink()
+        monkeypatch.setattr(
+            "locallens.config.pesi.snapshot_completo", lambda p, c=None: snap
+        )
+        assert fab.disponibilita_gpu_locale(_info(), preset, bins_root=tmp_path) is atteso
