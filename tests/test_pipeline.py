@@ -296,3 +296,103 @@ def test_fallback_vuoto_segnalato_in_nota():
     out = elabora_pagine([b"img1"], infer=infer, fallback=fallback, sorgente="bundlato")
     assert out[0].motore_usato == "cpu-tesseract"
     assert "fallback vuoto" in (out[0].nota or "")
+
+
+def test_contesto_bilingue_non_scarta_inglese_fedele():
+    """Crisi-2 P3: inglese sorgente con attese it+en resta esterno."""
+    inglese = (
+        "Supply contract n. 88 between Gamma Trasporti and Paolo Riva. "
+        "The quarterly report shows revenue growth across all regions. "
+        "The board approved the budget for the next fiscal year. "
+        "Cash flow from operations covered capital expenditure and debt repayment. "
+        "The company expects stronger demand in the second half of the year."
+    )
+
+    def infer(pagina_id, _img):
+        return (inglese, "esterno")
+
+    def fallback(pagina_id, _img):
+        raise AssertionError("fedele bilingue non deve scattare")
+
+    out = elabora_pagine(
+        [b"img1"], infer=infer, fallback=fallback,
+        sorgente="bundlato", lingue_attese=("it", "en"),
+    )
+    assert out[0].motore_usato == "esterno"
+
+
+def test_contesto_soglia_loop_accetta_righe_legittime():
+    """Crisi-2 P2: 8 righe identiche legittime con soglia 9 restano esterno."""
+    righe = ["Verbale seggio n. 14, apertura ore 8:00."]
+    righe += ["Presente - delega verificata - documento valido - scheda consegnata."] * 8
+    righe += ["Chiusura ore 19:00, schede scrutinate 214."]
+    testo = "\n".join(righe)
+
+    def infer(pagina_id, _img):
+        return (testo, "esterno")
+
+    def fallback(pagina_id, _img):
+        raise AssertionError("ripetizione legittima non deve scattare")
+
+    out = elabora_pagine(
+        [b"img1"], infer=infer, fallback=fallback,
+        sorgente="bundlato", soglia_righe_loop=9,
+    )
+    assert out[0].motore_usato == "esterno"
+
+
+def test_contesto_ignora_eco_istruzioni_stampate():
+    """Crisi-2 P1: eco stampata nella sorgente con ignora_eco resta esterno."""
+    testo = (
+        "Transcribe the document text exactly. No commentary. "
+        "Il sottoscritto Mario Rossi chiede il certificato di residenza storica. "
+        "Allega documento di identita e marca da bollo da sedici euro."
+    )
+
+    def infer(pagina_id, _img):
+        return (testo, "esterno")
+
+    def fallback(pagina_id, _img):
+        raise AssertionError("eco stampata nota non deve scattare")
+
+    out = elabora_pagine(
+        [b"img1"], infer=infer, fallback=fallback,
+        sorgente="bundlato", ignora_eco=True,
+    )
+    assert out[0].motore_usato == "esterno"
+
+
+def test_anomalia_fail_fast_senza_retry():
+    """P4 densa: loop al 1° tentativo → fallback diretto, 1 sola infer (no 2° retry)."""
+    chiamate = []
+    loop = " ".join(["No copying."] * 200)
+
+    def infer(pagina_id, _img):
+        chiamate.append(pagina_id)
+        return (loop, "esterno")
+
+    def fallback(pagina_id, _img):
+        return "recuperato-tesseract"
+
+    out = elabora_pagine([b"img1"], infer=infer, fallback=fallback, sorgente="bundlato")
+    assert out[0].motore_usato == "cpu-tesseract"
+    assert len(chiamate) == 1
+    assert "fail-fast" in (out[0].nota or "")
+
+
+def test_output_vuoto_mantiene_retry():
+    """Vuoto forse transitorio: retry conservato, 2 infer prima del fallback."""
+    chiamate = []
+
+    def infer(pagina_id, _img):
+        chiamate.append(pagina_id)
+        if len(chiamate) == 1:
+            return ("   ", "esterno")
+        return ("ok-dopo-retry", "esterno")
+
+    def fallback(pagina_id, _img):
+        raise AssertionError("retry riuscito, fallback non deve scattare")
+
+    out = elabora_pagine([b"img1"], infer=infer, fallback=fallback, sorgente="bundlato")
+    assert out[0].testo == "ok-dopo-retry"
+    assert len(chiamate) == 2

@@ -34,6 +34,12 @@ models/
 *.log
 logs/
 
+# Output Estrazioni salvate e schermate di debug (run locali, mai nel repo)
+file3
+test2
+errore.png
+
+
 # OS / IDE
 .DS_Store
 Thumbs.db

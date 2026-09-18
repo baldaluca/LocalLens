@@ -4,7 +4,7 @@ import os
 
 import pytest
 
-from locallens.fallback.tesseract import LANG_DEFAULT, estrai, verifica_disponibile
+from locallens.fallback.tesseract import LANG_DEFAULT, PSM_DEFAULT, estrai, verifica_disponibile
 
 
 def _png_bianco() -> bytes:
@@ -32,6 +32,20 @@ def test_estrai_usa_runner_iniettato():
 
 def test_lang_default_ita_eng():
     assert LANG_DEFAULT == "ita+eng"
+
+
+def test_psm_default_blocco_uniforme():
+    """Misurato su P4 densa crisi-reale-2: psm 6 → F1 1.00 in 5s (psm 3: 0.84 in 7s)."""
+    assert PSM_DEFAULT == 6
+
+
+def test_estrai_runner_iniettato_ignora_psm():
+    """Il runner iniettato riceve (immagine, lang) come prima: nessun break."""
+
+    def fake_ocr(immagine, lang):
+        return "ok"
+
+    assert estrai(_png_bianco(), psm=3, ocr=fake_ocr) == "ok"
 
 
 def test_verifica_disponibile_bool():

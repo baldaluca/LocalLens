@@ -34,6 +34,9 @@ class OcrEngine:
         infer: Callable[[int, bytes], tuple[str, str]] | None = None,
         fallback: Callable[[int, bytes], str] | None = None,
         sorgente: str = "bundlato",
+        lingue_attese: tuple[str, ...] = ("it",),
+        soglia_righe_loop: int = 5,
+        ignora_eco: bool = False,
     ) -> None:
         if infer is None or fallback is None:
             raise ValueError(
@@ -42,6 +45,9 @@ class OcrEngine:
         self._infer = infer
         self._fallback = fallback
         self._sorgente = sorgente
+        self._lingue_attese = lingue_attese
+        self._soglia_righe_loop = soglia_righe_loop
+        self._ignora_eco = ignora_eco
         self._jobs: dict[str, OcrJob] = {}
 
     def submit_document(
@@ -78,6 +84,9 @@ class OcrEngine:
             sorgente=self._sorgente,
             on_page=callback,
             ferma=ferma,
+            lingue_attese=self._lingue_attese,
+            soglia_righe_loop=self._soglia_righe_loop,
+            ignora_eco=self._ignora_eco,
         )
         job.estrazioni = [
             Estrazione(
@@ -117,6 +126,9 @@ def crea_engine(
     max_side: int = 2048,
     contrasto: bool = False,
     timeout: int = 600,
+    lingue_attese: tuple[str, ...] = ("it",),
+    soglia_righe_loop: int = 5,
+    ignora_eco: bool = False,
 ) -> OcrEngine:
     """Collega client HTTP + fallback Tesseract dietro la pipeline. Default = tesseract reale."""
     from locallens.fallback.tesseract import estrai as tesseract_estrai
@@ -141,4 +153,8 @@ def crea_engine(
     def fb_default(_pagina_id: int, png: bytes) -> str:
         return tesseract_estrai(png)
 
-    return OcrEngine(infer=infer, fallback=fallback or fb_default, sorgente=sorgente)
+    return OcrEngine(
+        infer=infer, fallback=fallback or fb_default, sorgente=sorgente,
+        lingue_attese=lingue_attese, soglia_righe_loop=soglia_righe_loop,
+        ignora_eco=ignora_eco,
+    )

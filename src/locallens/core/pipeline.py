@@ -1,4 +1,4 @@
-"""Pipeline Documento → Pagine → Estrazioni. Sequenziale, 1 retry, poi fallback CPU."""
+"""Pipeline Documento → Pagine → Estrazioni. Sequenziale, 1 retry su errore/vuoto, fail-fast su anomalia, poi fallback CPU."""
 import re
 import time
 import unicodedata
@@ -70,12 +70,22 @@ _SCRIPT_INATTESI = (
 )
 
 
-def _motivo_anomalia(testo: str) -> str | None:
+def _motivo_anomalia(
+    testo: str,
+    *,
+    lingue_attese: tuple[str, ...] = ("it",),
+    soglia_righe_loop: int = 5,
+    ignora_eco: bool = False,
+) -> str | None:
     """Output del VLM andato storto: eco del prompt, loop, escape letterali.
 
     Somma pesi, fallback se >= 1 (dubbio → Tesseract): segnali forti = 1.0,
     deboli = 0.5 solo in combinazione. Vale a qualsiasi lunghezza, con pavimenti
     minimi per segnale: mai su trascrizioni brevi legittime o tabelle/codice.
+    Contesto del Documento: lingue_attese dichiara le lingue legittime
+    (es. ("it", "en") per Documenti bilingui), soglia_righe_loop alza il
+    pavimento del loop su Pagine legittimamente ripetitive, ignora_eco salta
+    il controllo eco quando le istruzioni sono stampate nella sorgente.
     Ritorna il motivo (per nota/diario) oppure None se il testo è accettabile.
     """
     motivi: list[str] = []
@@ -88,14 +98,14 @@ def _motivo_anomalia(testo: str) -> str | None:
 
     n = len(testo)
     minuscolo = testo.lower()
-    if "transcribe the document" in minuscolo:
+    if not ignora_eco and "transcribe the document" in minuscolo:
         _segnala("output anomalo: eco del prompt", 1.0)
     if testo.count("\\n") > 100:
         _segnala("output anomalo: escape eccessivi", 1.0)
     righe = [r.strip() for r in testo.splitlines() if r.strip()]
     if righe:
         comune, freq = Counter(righe).most_common(1)[0]
-        if freq >= 5 and len(comune) > 20:
+        if freq >= soglia_righe_loop and len(comune) > 20:
             _segnala("output anomalo: ripetizione in loop", 1.0)
     frasi = [s.strip() for s in testo.replace("\n", " ").split(".") if len(s.strip()) >= 4]
     if len(frasi) >= 30:
@@ -125,7 +135,7 @@ def _motivo_anomalia(testo: str) -> str | None:
     if len(parole_alpha) >= 30:
         quota_it = sum(1 for w in parole_alpha if w in _STOP_IT) / len(parole_alpha)
         quota_en = sum(1 for w in parole_alpha if w in _STOP_EN) / len(parole_alpha)
-        if quota_en - quota_it > 0.10:
+        if quota_en - quota_it > 0.10 and "en" not in lingue_attese:
             _segnala("output anomalo: lingua inattesa", 1.0)
     for marcatore in _MARCATORI_FORTI:
         if marcatore in minuscolo:
@@ -188,8 +198,11 @@ def elabora_pagine(
     sorgente: str = "bundlato",
     on_page: Callable[[EstrazionePagina, int, int], None] | None = None,
     ferma: Callable[[], bool] | None = None,
+    lingue_attese: tuple[str, ...] = ("it",),
+    soglia_righe_loop: int = 5,
+    ignora_eco: bool = False,
 ) -> list[EstrazionePagina]:
-    """Per ogni Pagina: infer (max 2 tentativi) → fallback Tesseract. Mai interruzione batch."""
+    """Per ogni Pagina: infer (2 tentativi su errore/vuoto, fail-fast su anomalia) → fallback Tesseract."""
     out: list[EstrazionePagina] = []
     totale = len(immagini)
     for i, img in enumerate(immagini, start=1):
@@ -214,10 +227,17 @@ def elabora_pagine(
                 if not testo.strip():
                     ultimo_errore = "output vuoto/anomalo"
                     continue
-                motivo = _motivo_anomalia(testo)
+                motivo = _motivo_anomalia(
+                    testo,
+                    lingue_attese=lingue_attese,
+                    soglia_righe_loop=soglia_righe_loop,
+                    ignora_eco=ignora_eco,
+                )
                 if motivo is not None:
-                    ultimo_errore = motivo
-                    continue
+                    # Difetto deterministico dello stesso input: riprovare
+                    # rigenererebbe la stessa degenerazione (P4: ~65s sprecati).
+                    ultimo_errore = motivo + "; fail-fast (senza retry)"
+                    break
                 riuscito = EstrazionePagina(i, testo, motore, _ms(t0))
                 break
             except InferenzaError as e:
