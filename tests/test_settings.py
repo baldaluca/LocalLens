@@ -42,4 +42,16 @@ def test_roundtrip_cloud(tmp_path):
         "prompt_esterno": "Leggi.",
     }
     salva(conf, path=tmp_path / "c.toml")
-    assert carica(path=tmp_path / "c.toml") == {**DEFAULTS, **conf}
+    atteso = {**DEFAULTS, **conf, "token_esterno": ""}
+    assert carica(path=tmp_path / "c.toml") == atteso
+
+
+def test_token_mai_salvato_su_disco(tmp_path):
+    from locallens.config.settings import carica, salva
+
+    conf = {"sorgente": "esterno", "token_esterno": "tk-segreto"}
+    path = tmp_path / "c.toml"
+    salva(conf, path=path)
+    assert "tk-segreto" not in path.read_text()
+    assert "token_esterno" not in path.read_text()
+    assert carica(path=path)["token_esterno"] == ""

@@ -44,7 +44,13 @@ def carica(path: Path | None = None) -> dict:
         dati = tomllib.load(f)
     conf = dict(DEFAULTS)
     conf.update({k: v for k, v in dati.items() if k in DEFAULTS})
+    for chiave in SEGRET:
+        conf[chiave] = DEFAULTS.get(chiave, "")
     return conf
+
+
+#: Chiavi mai scritte su disco (segreti di sessione).
+SEGRET = ("token_esterno",)
 
 
 def salva(conf: dict, path: Path | None = None) -> Path:
@@ -52,6 +58,8 @@ def salva(conf: dict, path: Path | None = None) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
     righe = []
     for chiave, valore in conf.items():
+        if chiave in SEGRET:
+            continue
         if isinstance(valore, str):
             righe.append(f'{chiave} = "{valore}"')
         elif isinstance(valore, bool):

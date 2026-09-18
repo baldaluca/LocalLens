@@ -271,3 +271,12 @@ def test_pill_mostra_gpu_locale(qapp):
     w.aggiorna_intestazione()
     assert "GPU locale" in w.pill.text()
     assert "10000" in w.pill.text()
+
+
+def test_chiusura_pulisce_token(qapp):
+    from locallens.app.finestra import MainWindow
+
+    w = MainWindow()
+    w.conf["token_esterno"] = "tk-segreto"
+    w.close()
+    assert w.conf.get("token_esterno", "") == ""

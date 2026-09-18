@@ -193,6 +193,11 @@ class MainWindow(QMainWindow):
         """fn(conf) -> (engine, stato, banner). Iniettato da __main__."""
         self._ricostruttore = fn
 
+    def closeEvent(self, evento) -> None:
+        """Il token API vive solo in sessione: azzerato alla chiusura."""
+        self.conf["token_esterno"] = ""
+        super().closeEvent(evento)
+
     def _richiedi_engine(self) -> OcrEngine | None:
         if self._engine is None:
             self.mostra_banner("Motore non pronto: backend non avviato.")
