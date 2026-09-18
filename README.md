@@ -1,61 +1,84 @@
-# LocalLens — OCR desktop con GPU locale e cloud opzionale
+# LocalLens
 
-Estrazione testo da immagini e PDF con tre Sorgenti: GPU locale (server
-`llama.cpp` all'URL configurato, rilevato solo se binari e pesi sono presenti),
-server esterno o cloud (URL + modello + prompt a mano, anche Ollama `/api/chat`),
-oppure nessuno (solo CPU via Tesseract). Il Token API vive solo in sessione:
-mai salvato su disco, pulito alla chiusura. Interfaccia in italiano o inglese,
-commutabile a caldo dalle Impostazioni.
+![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue)
+![Platform](https://img.shields.io/badge/platform-linux%20%7C%20windows-lightgrey)
+![GUI](https://img.shields.io/badge/gui-PySide6-green)
+![Tests](https://img.shields.io/badge/tests-233%20passed-brightgreen)
 
-## Requisiti
+Desktop OCR app: extract text from images and PDFs using a local GPU server, an external/cloud server, or plain CPU.
 
-- Python ≥ 3.11, [uv](https://docs.astral.sh/uv/)
-- Linux o Windows 10/11 (macOS rimandato a v2)
-- GPU opzionale; senza GPU si usa solo Tesseract
-- Tesseract di sistema per il fallback (`apt install tesseract-ocr tesseract-ocr-ita`)
-- Pesi `ggml-org/GLM-OCR-GGUF` (scaricati al primo uso o riusati da `~/.cache/huggingface`)
+## Features
 
-## Avvio rapido (Linux)
+- 📄 OCR from **images and PDFs** (file, clipboard, screenshot)
+- 🖥️ **GPU locale** — talks to a `llama.cpp` server at your URL (health-checked, nothing auto-started)
+- ☁️ **External / cloud** — manual URL + model + prompt, with Ollama `/api/chat` auto-detected; API token lives **only in memory**, never saved, cleared on close
+- 🔤 **CPU fallback** via Tesseract (PSM 6), with fail-fast on degenerate model output
+- 🌍 UI in **Italian or English**, switchable live from Settings
+- 🌓 Light / dark themes, per-page engine badge, JSONL run diary
+
+## Quickstart (Linux)
 
 ```bash
-uv sync                                   # installa anche locallens in editable
-QT_QPA_PLATFORM=offscreen timeout 12 uv run python -m locallens   # smoke headless
-uv run python -m locallens                # GUI (oppure: uv run locallens)
+uv sync
+uv run python -m locallens        # GUI (or: uv run locallens)
 ```
 
-## Test
+Smoke test without a display:
 
 ```bash
-uv run --with pytest pytest tests/ -q       # unit (live skippati di default)
+QT_QPA_PLATFORM=offscreen timeout 12 uv run python -m locallens
+```
+
+Requirements: Python ≥ 3.11, [uv](https://docs.astral.sh/uv/), Tesseract (`apt install tesseract-ocr tesseract-ocr-ita`).
+
+> **GPU locale needs a server you start yourself.** If none answers at the
+> configured URL you get CPU fallback with a banner telling you to start
+> `llama-server` there and retry.
+
+## Model sources
+
+| Source | What it does |
+|---|---|
+| **GPU locale** | Uses the server at its own URL (kept separate from the external one). Shown only if binaries + weights are detected, otherwise it falls back to external with a banner. |
+| **External** | Local server or cloud, fully manual: URL (verbatim), model, prompt, API token (session-only). Privacy warning on non-local URLs. |
+| **None** | Tesseract only. |
+
+Presets (`presets/*.toml`) apply to local servers; cloud uses your manual model + prompt.
+
+## Configuration
+
+Settings persist to the user config (`XDG`/`APPDATA`) except the API token, which is never written to disk. Anti-self-hit filter (languages, loop threshold, prompt-echo ignore) is tunable from Settings.
+
+## Development
+
+```bash
+uv run --with pytest pytest tests/ -q       # unit (live skipped by default)
 uv run --with ruff ruff check src tests tools
 uv run --with mypy mypy src/locallens/
 ```
 
-Live (macchina di riferimento, server GLM-OCR su 8099):
+Live tests against a real server:
 
 ```bash
 LOCALLENS_LIVE=1 LOCALLENS_URL=http://127.0.0.1:8099 uv run --with pytest pytest tests/test_integrazione_ocr.py -q
 TESSERACT_LIVE=1 uv run --with pytest pytest tests/test_fallback.py -q
 ```
 
-## Binari llama-server (distribuzione)
+## Packaging
 
 ```bash
-python tools/fetch-binaries.py --list            # asset pinnati (llama.cpp b10995)
-python tools/fetch-binaries.py --os linux --all  # scarica in bins/
+python tools/fetch-binaries.py --os linux --all  # llama-server builds into bins/
+uv run --with pyinstaller pyinstaller -y locallens.spec
+./dist/locallens/locallens
 ```
 
-Pinnatura aggiornata solo dopo test su entrambe le macchine di riferimento.
+## Docs
 
-## Pacchetto
+- Glossary: [`CONTEXT.md`](CONTEXT.md)
+- Architecture: [`docs/architecture.md`](docs/architecture.md)
+- Decisions: [`docs/adr/`](docs/adr/)
+- Requirements: [`requisiti-progetto-ocr-locale.md`](requisiti-progetto-ocr-locale.md)
 
-```bash
-uv run --with pyinstaller pyinstaller locallens.spec
-```
+## Out of scope
 
-Un pacchetto per OS include tutti i binari `bins/<os>/*`; selezione a runtime.
-
-## Layout
-
-`src/locallens/{hwdetect,backend,config,core,preprocessing,fallback,app}` —
-dettagli in `docs/architecture.md`, glossario in `CONTEXT.md`, decisioni in `docs/adr/`.
+Windows smoke test on reference hardware, macOS/Metal, app stores, token persistence (deliberately session-only).
