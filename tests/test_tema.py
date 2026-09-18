@@ -54,7 +54,7 @@ def test_toggle_sulla_finestra(qapp):
 
 
 def test_qss_dropdown_popup_a_tema():
-    import locallens.app.tema as tema
+    from locallens.app import tema
 
     for nome in ("chiaro", "scuro"):
         foglio = tema.qss(nome)

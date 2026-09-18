@@ -20,7 +20,6 @@ from locallens.app.lingua import LINGUE, t
 from locallens.app.tema import applica_tavolozza, qss
 from locallens.core.rete import is_url_privata
 
-
 _ID_SORGENTI = ("bundlato", "esterno", "nessuno")
 _CHIAVE_SORGENTE = {"bundlato": "sorgente_bundlato", "esterno": "sorgente_esterno", "nessuno": "sorgente_nessuno"}
 
@@ -39,7 +38,7 @@ class DialogoImpostazioni(QDialog):
         self.setWindowTitle(t(lingua, "dlg_impostazioni_titolo"))
         self.setStyleSheet(qss(tema))  # come la finestra principale (stessi token)
         applica_tavolozza(tema)
-        self.setWindowFlag(Qt.WindowContextHelpButtonHint, True)
+        self.setWindowFlag(Qt.WindowContextHelpButtonHint, True)  # type: ignore[attr-defined]  # stub: enum spostato in Qt.WindowType, a runtime ancora esposto su Qt
         layout = QFormLayout(self)
 
         self.sorgente = QComboBox()

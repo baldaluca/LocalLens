@@ -4,7 +4,12 @@ import os
 
 import pytest
 
-from locallens.fallback.tesseract import LANG_DEFAULT, PSM_DEFAULT, estrai, verifica_disponibile
+from locallens.fallback.tesseract import (
+    LANG_DEFAULT,
+    PSM_DEFAULT,
+    estrai,
+    verifica_disponibile,
+)
 
 
 def _png_bianco() -> bytes:

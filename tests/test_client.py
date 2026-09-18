@@ -74,7 +74,8 @@ def test_invia_ok():
 
 def test_invia_chat_con_token_mette_bearer(monkeypatch):
     import json
-    import locallens.core.client as client
+
+    from locallens.core import client
 
     viste = {}
 
@@ -99,7 +100,8 @@ def test_invia_chat_con_token_mette_bearer(monkeypatch):
 
 def test_invia_chat_senza_token_nessun_header(monkeypatch):
     import json
-    import locallens.core.client as client
+
+    from locallens.core import client
 
     viste = {}
 
@@ -122,40 +124,33 @@ def test_invia_chat_senza_token_nessun_header(monkeypatch):
     assert viste["auth"] is None
 
 
-def test_errore_http_include_corpo_server():
+def test_errore_http_include_corpo_server(monkeypatch):
     import io
     import urllib.error
+    import urllib.request
 
-    import locallens.core.client as client
+    from locallens.core import client
+    from locallens.core.client import InferenzaError
 
     def urlopen_finto(req, timeout=None):
         raise urllib.error.HTTPError(
             req.full_url, 400, "Bad Request", {}, io.BytesIO(b'{"error":"model not found"}')
         )
 
-    import urllib.request
-
-    orig = urllib.request.urlopen
-    urllib.request.urlopen = urlopen_finto
-    try:
-        try:
-            client.invia_chat("http://x/api/chat", {"model": "m"})
-            raise AssertionError("doveva sollevare")
-        except Exception as e:
-            assert "model not found" in str(e)
-    finally:
-        urllib.request.urlopen = orig
+    monkeypatch.setattr(urllib.request, "urlopen", urlopen_finto)
+    with pytest.raises(InferenzaError, match="model not found"):
+        client.invia_chat("http://x/api/chat", {"model": "m"})
 
 
 def test_dialetto_ollama_da_url():
-    import locallens.core.client as client
+    from locallens.core import client
 
     assert client.dialetto("https://ollama.com/api/chat") == "ollama"
     assert client.dialetto("http://127.0.0.1:10000/v1/chat/completions") == "openai"
 
 
 def test_dialetto_solo_path_esatto():
-    import locallens.core.client as client
+    from locallens.core import client
 
     assert client.dialetto("http://x/v1/chat?next=/api/chat") == "openai"
     assert client.dialetto("http://x/api/chat/") == "ollama"
@@ -163,18 +158,18 @@ def test_dialetto_solo_path_esatto():
 
 
 def test_payload_ollama_con_immagini_e_no_stream():
-    import locallens.core.client as client
+    from locallens.core import client
 
     p = client.build_ollama_payload("AAA", "Leggi.", "gemma3:4b", 512)
     assert p["model"] == "gemma3:4b"
     assert p["stream"] is False
     assert p["options"]["num_predict"] == 512
-    user = [m for m in p["messages"] if m["role"] == "user"][0]
+    user = next(m for m in p["messages"] if m["role"] == "user")
     assert isinstance(user["content"], str)
     assert user["images"] == ["AAA"]
 
 
 def test_parse_risposta_ollama():
-    import locallens.core.client as client
+    from locallens.core import client
 
     assert client.parse_chat_text({"message": {"content": "testo"}}) == "testo"

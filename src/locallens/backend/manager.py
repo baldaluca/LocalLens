@@ -6,11 +6,11 @@ from locallens.core.rete import is_url_privata, resolve_binary, verifica_health
 
 __all__ = [
     "BackendHandle",
+    "BackendManager",
+    "is_url_privata",
     "resolve_binary",
     "trova_porta_libera",
-    "is_url_privata",
     "verifica_health",
-    "BackendManager",
 ]
 
 
@@ -46,7 +46,6 @@ class BackendManager:
     ) -> None:
         import socket
         import subprocess
-        import urllib.request
         from collections.abc import (
             Callable,  # noqa: F401 (import locale, niente dipendenze extra)
         )
@@ -133,25 +132,21 @@ class BackendManager:
         proc, self._proc = self._proc, None
         if proc is None:
             return
+        import contextlib
         import subprocess as _sp
 
-        try:
+        # Cleanup best-effort: qualunque errore qui è ignorabile, l'importante
+        # è non lasciare zombie e mai bloccare start/stop.
+        with contextlib.suppress(Exception):
             proc.terminate()
-        except Exception:  # noqa: BLE001 — termina al meglio, poi aspetta
-            pass
-        try:
-            proc.wait(timeout=5)
-        except _sp.TimeoutExpired:
-            try:
-                proc.kill()
-            except Exception:  # noqa: BLE001 — kill best-effort
-                pass
+        with contextlib.suppress(Exception):
             try:
                 proc.wait(timeout=5)
-            except Exception:  # noqa: BLE001 — mai bloccare lo start/stop
-                pass
-        except Exception:  # noqa: BLE001 — wait best-effort
-            pass
+            except _sp.TimeoutExpired:
+                # Kill best-effort, poi secondo wait best-effort.
+                with contextlib.suppress(Exception):
+                    proc.kill()
+                proc.wait(timeout=5)
 
     def stop(self) -> None:
         if self._proc is not None:

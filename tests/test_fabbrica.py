@@ -66,7 +66,7 @@ def test_bundlato_usa_url_se_health_ok():
 def test_bundlato_solo_cpu_se_health_ko():
     preset = load_preset("presets/glm-ocr-q8_0.toml")
     conf = {"sorgente": "bundlato", "url_esterno": "http://127.0.0.1:10000"}
-    eng, stato, banner = costruisci(
+    eng, _stato, banner = costruisci(
         conf,
         _info(),
         preset,
@@ -172,7 +172,7 @@ def test_disponibilita_quattro_combinazioni(tmp_path, monkeypatch):
         elif binario.is_file():
             binario.unlink()
         monkeypatch.setattr(
-            "locallens.config.pesi.snapshot_completo", lambda p, c=None: snap
+            "locallens.config.pesi.snapshot_completo", lambda p, c=None, _snap=snap: _snap
         )
         assert fab.disponibilita_gpu_locale(_info(), preset, bins_root=tmp_path) is atteso
 

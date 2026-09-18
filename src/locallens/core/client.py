@@ -55,7 +55,8 @@ def dialetto(url: str) -> str:
 
     try:
         percorso = urlparse(url).path.rstrip("/")
-    except Exception:
+    except (ValueError, TypeError):
+        # URL non parsabile: dialetto default, mai bloccare la chiamata.
         return "openai"
     return "ollama" if percorso == "/api/chat" else "openai"
 
@@ -99,7 +100,8 @@ def invia_chat(
     except urllib.error.HTTPError as e:
         try:
             corpo = e.read().decode("utf-8", "replace")[:MAX_CORPO_ERRORE]
-        except Exception:
+        except (OSError, ValueError):
+            # Corpo best-effort: l'HTTP code basta per la diagnosi.
             corpo = ""
         dettaglio = corpo or e.reason
         raise InferenzaError(f"chiamata chat fallita: HTTP {e.code}: {dettaglio}") from e

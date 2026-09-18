@@ -62,7 +62,7 @@ def applica_tavolozza(nome: str) -> None:
     tav.setColor(QPalette.ColorRole.ButtonText, QColor(t["foreground"]))
     tav.setColor(QPalette.ColorRole.Highlight, QColor(t["primary"]))
     tav.setColor(QPalette.ColorRole.HighlightedText, QColor(t["on_primary"]))
-    app.setPalette(tav)
+    app.setPalette(tav)  # type: ignore[attr-defined]  # stub: instance() è tipato QCoreApplication, a runtime è QApplication
 
 
 def qss(nome: str) -> str:

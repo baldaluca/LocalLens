@@ -256,16 +256,16 @@ def elabora_pagine(
                 continue
         if riuscito is None:
             testo = fallback(i, img)
-            nota = ultimo_errore
+            nota_fallback: str | None = ultimo_errore
             corpo = testo.strip()
             if not corpo:
-                nota = ((ultimo_errore + "; ") if ultimo_errore else "") + "fallback vuoto"
+                nota_fallback = ((ultimo_errore + "; ") if ultimo_errore else "") + "fallback vuoto"
             elif len(corpo) < 20:
                 # Ultima spiaggia quasi muta: l'utente deve saperlo dalla nota.
-                nota = ((ultimo_errore + "; ") if ultimo_errore else "") + (
+                nota_fallback = ((ultimo_errore + "; ") if ultimo_errore else "") + (
                     f"fallback debole ({len(corpo)} char)"
                 )
-            riuscito = EstrazionePagina(i, testo, "cpu-tesseract", _ms(t0), nota, respinto)
+            riuscito = EstrazionePagina(i, testo, "cpu-tesseract", _ms(t0), nota_fallback, respinto)
         out.append(riuscito)
         if on_page:
             on_page(riuscito, i, totale)

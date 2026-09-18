@@ -3,8 +3,8 @@
 import sys
 
 from locallens.app.lingua import t
-from locallens.core.rete import is_url_privata, resolve_binary, verifica_health
 from locallens.core.orchestrator import solo_cpu as _solo_cpu_default
+from locallens.core.rete import is_url_privata, resolve_binary, verifica_health
 
 
 def _contesto(conf) -> dict:

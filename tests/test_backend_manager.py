@@ -97,7 +97,7 @@ def test_verifica_health_url_malformato_ritorna_false():
 
 def test_backend_riespone_nomi_core_per_compatibilita():
     import locallens.backend.manager as mgr
-    import locallens.core.rete as rete
+    from locallens.core import rete
 
     assert mgr.resolve_binary is rete.resolve_binary
     assert mgr.verifica_health is rete.verifica_health
