@@ -113,6 +113,7 @@ class DialogoImpostazioni(QDialog):
         bottone = QPushButton("?")
         bottone.setFixedWidth(32)
         bottone.setProperty("secondario", True)
+        bottone.setProperty("aiuto", True)
         bottone.setToolTip("Mostra la spiegazione")
         spiega = QLabel(_AIUTI[chiave])
         spiega.setObjectName("suggerimento")

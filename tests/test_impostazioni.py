@@ -98,3 +98,10 @@ def test_aiuto_per_riga_con_bottone_punto_domanda(qapp):
         assert not spiega.isHidden()
         bottone.click()
         assert spiega.isHidden()
+
+
+def test_bottone_aiuto_testo_visibile(qapp):
+    """Il '?' non deve restare schiacciato dal padding: regola dedicata nel foglio."""
+    d = DialogoImpostazioni(preset_ids=["glm-ocr-q8_0"])
+    assert d.aiuto_lingue_btn.property("aiuto") is True
+    assert 'aiuto="true"' in d.styleSheet()

@@ -70,6 +70,7 @@ QPushButton:pressed {{ background: {t['primary_pressa']}; }}
 QPushButton:disabled {{ background: {t['border']}; color: {t['muted']}; }}
 QPushButton[secondario="true"] {{ background: {t['surface']}; color: {t['link']};
   border: 1px solid {t['border']}; }}
+QPushButton[secondario="true"][aiuto="true"] {{ padding: 4px; min-width: 20px; }}
 QPushButton[secondario="true"]:hover {{ border-color: {t['primary']};
   background: {t['surface']}; }}
 QProgressBar {{ background: {t['surface']}; border: 1px solid {t['border']};
