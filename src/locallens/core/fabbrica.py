@@ -40,7 +40,7 @@ def normalizza_sorgente(conf, info, preset, **rileva_kw) -> tuple[dict, str | No
     return conf, None
 
 
-def costruisci(conf, info, preset, gestore=None, crea=None, solo_cpu=None, pesi=None, verifica=None):
+def costruisci(conf, info, preset, gestore=None, crea=None, solo_cpu=None, pesi=None, verifica=None, crea_cloud=None):
     """(engine, stato, banner). Dipendenze iniettabili; default = reali."""
     from locallens.backend.manager import verifica_health
     from locallens.core.orchestrator import crea_engine as _crea
@@ -56,6 +56,23 @@ def costruisci(conf, info, preset, gestore=None, crea=None, solo_cpu=None, pesi=
             if is_url_privata(url)
             else "Attenzione privacy: l'URL non punta alla rete locale."
         )
+        modello = (conf.get("modello_esterno") or "").strip()
+        if modello:
+            # Cloud tutto a mano: token+modello+prompt, nessun preset.
+            if crea_cloud is None:
+                from locallens.core.orchestrator import crea_engine_cloud as _crea_cloud
+
+                crea_cloud = _crea_cloud
+            engine = crea_cloud(
+                url,
+                modello=modello,
+                prompt=conf.get("prompt_esterno", ""),
+                token=(conf.get("token_esterno") or "").strip(),
+                max_side=conf.get("max_side_px", 2048),
+                contrasto=conf.get("contrasto", False),
+                **_contesto(conf),
+            )
+            return engine, f"esterno • {url}", banner
         engine = crea(
             url,
             preset,

@@ -281,6 +281,11 @@ class MainWindow(QMainWindow):
         dlg.set_sorgente(self.conf.get("sorgente", "bundlato"))
         dlg.set_preset(self.conf.get("preset_id", "") or "lighton-ocr-q8_0")
         dlg.url.setText(self.conf.get("url_esterno", ""))
+        dlg.set_cloud(
+            self.conf.get("token_esterno", ""),
+            self.conf.get("modello_esterno", ""),
+            self.conf.get("prompt_esterno", ""),
+        )
         dlg.set_contesto(
             self.conf.get("lingue_filtro", "it"),
             int(self.conf.get("soglia_righe_loop", 5)),

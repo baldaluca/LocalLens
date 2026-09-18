@@ -45,14 +45,18 @@ def invia_chat(
     payload: dict,
     post: Callable[[str, dict], dict] | None = None,
     timeout: int = 600,
+    token: str | None = None,
 ) -> str:
     url = base_url.rstrip("/") + "/v1/chat/completions"
     try:
         if post is None:
+            headers = {"Content-Type": "application/json"}
+            if token:
+                headers["Authorization"] = f"Bearer {token}"
             req = urllib.request.Request(
                 url,
                 data=json.dumps(payload).encode(),
-                headers={"Content-Type": "application/json"},
+                headers=headers,
             )
             with urllib.request.urlopen(req, timeout=timeout) as r:
                 risposta = json.load(r)

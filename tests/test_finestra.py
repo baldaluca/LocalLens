@@ -231,6 +231,9 @@ def test_impostazioni_ricostruiscono_engine(qapp, monkeypatch, tmp_path):
         def set_contesto(self, lingue="it", soglia=5, ignora_eco=False):
             pass
 
+        def set_cloud(self, token="", modello="", prompt=""):
+            pass
+
         def exec(self):
             return True
 

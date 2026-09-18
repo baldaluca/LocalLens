@@ -10,6 +10,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QLineEdit,
+    QPlainTextEdit,
     QPushButton,
     QSpinBox,
     QWidget,
@@ -51,15 +52,33 @@ class DialogoImpostazioni(QDialog):
         voci = [v for v in VOCI_SORGENTE if v[1] != "bundlato" or gpu_locale_disponibile]
         self.sorgente.addItems([etichetta for etichetta, _ in voci])
         self.sorgente.currentTextChanged.connect(lambda _: self._aggiorna_avviso())
+        self.sorgente.currentTextChanged.connect(lambda _: self._aggiorna_viste())
         layout.addRow("Sorgente modello", self.sorgente)
 
         self.url = QLineEdit("http://127.0.0.1:8011")
         self.url.textChanged.connect(lambda _: self._aggiorna_avviso())
         layout.addRow("URL server esterno", self.url)
 
+        self.etichetta_preset = QLabel("Preset (auto se invariato)")
         self.preset = QComboBox()
         self.preset.addItems(preset_ids)
-        layout.addRow("Preset (auto se invariato)", self.preset)
+        layout.addRow(self.etichetta_preset, self.preset)
+
+        self.etichetta_token = QLabel("Token cloud")
+        self.token = QLineEdit()
+        self.token.setEchoMode(QLineEdit.EchoMode.Password)
+        self.token.setPlaceholderText("sk-...")
+        layout.addRow(self.etichetta_token, self.token)
+
+        self.etichetta_modello = QLabel("Modello cloud")
+        self.modello = QLineEdit()
+        self.modello.setPlaceholderText("es. gpt-4o")
+        layout.addRow(self.etichetta_modello, self.modello)
+
+        self.etichetta_prompt = QLabel("Prompt cloud")
+        self.prompt = QPlainTextEdit("Transcribe the document text exactly. No commentary.")
+        self.prompt.setFixedHeight(60)
+        layout.addRow(self.etichetta_prompt, self.prompt)
 
         self.lingue = QLineEdit("it")
         self.lingue.setWhatsThis(_AIUTI["lingue"])
@@ -96,6 +115,7 @@ class DialogoImpostazioni(QDialog):
         bottoni.rejected.connect(self.reject)
         layout.addRow(bottoni)
         self._aggiorna_avviso()
+        self._aggiorna_viste()
 
     def set_sorgente(self, valore: str) -> None:
         for etichetta, ident in VOCI_SORGENTE:
@@ -105,6 +125,12 @@ class DialogoImpostazioni(QDialog):
 
     def set_preset(self, preset_id: str) -> None:
         self.preset.setCurrentText(preset_id)
+
+    def set_cloud(self, token: str = "", modello: str = "", prompt: str = "") -> None:
+        self.token.setText(token)
+        self.modello.setText(modello)
+        if prompt:
+            self.prompt.setPlainText(prompt)
 
     def set_contesto(self, lingue: str = "it", soglia: int = 5, ignora_eco: bool = False) -> None:
         self.lingue.setText(lingue)
@@ -133,6 +159,22 @@ class DialogoImpostazioni(QDialog):
         layout.addRow(spiega)
         return bottone, spiega
 
+    def _aggiorna_viste(self) -> None:
+        """Esterno = cloud tutto a mano (niente preset); altre = preset, niente cloud."""
+        cloud = self._id_corrente() == "esterno"
+        self.etichetta_preset.setVisible(not cloud)
+        self.preset.setVisible(not cloud)
+        for w in (
+            self.etichetta_token, self.token,
+            self.etichetta_modello, self.modello,
+            self.etichetta_prompt, self.prompt,
+        ):
+            w.setVisible(cloud)
+
+    def _id_corrente(self) -> str:
+        scelta = self.sorgente.currentText()
+        return next(ident for etichetta, ident in VOCI_SORGENTE if etichetta == scelta)
+
     def _aggiorna_avviso(self) -> None:
         mostra = self.sorgente.currentText() == "esterno" and not is_url_privata(
             self.url.text()
@@ -146,6 +188,9 @@ class DialogoImpostazioni(QDialog):
             "sorgente": ident,
             "url_esterno": self.url.text(),
             "preset_id": self.preset.currentText(),
+            "token_esterno": self.token.text().strip(),
+            "modello_esterno": self.modello.text().strip(),
+            "prompt_esterno": self.prompt.toPlainText().strip(),
             "lingue_filtro": self.lingue.text().strip() or "it",
             "soglia_righe_loop": self.soglia.value(),
             "ignora_eco": self.ignora_eco.isChecked(),

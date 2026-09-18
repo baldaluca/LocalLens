@@ -70,3 +70,53 @@ def test_invia_ok():
         return {"choices": [{"message": {"content": "ok"}}]}
 
     assert invia_chat("http://127.0.0.1:8011", {"model": "x"}, post=post_ok) == "ok"
+
+
+def test_invia_chat_con_token_mette_bearer(monkeypatch):
+    import json
+    import locallens.core.client as client
+
+    viste = {}
+
+    class Risposta:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def read(self):
+            return json.dumps({"choices": [{"message": {"content": "ok"}}]}).encode()
+
+    def urlopen_finto(req, timeout=None):
+        viste["auth"] = req.get_header("Authorization")
+        return Risposta()
+
+    monkeypatch.setattr("urllib.request.urlopen", urlopen_finto)
+    assert client.invia_chat("http://x", {"model": "m"}, token="segreto") == "ok"
+    assert viste["auth"] == "Bearer segreto"
+
+
+def test_invia_chat_senza_token_nessun_header(monkeypatch):
+    import json
+    import locallens.core.client as client
+
+    viste = {}
+
+    class Risposta:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def read(self):
+            return json.dumps({"choices": [{"message": {"content": "ok"}}]}).encode()
+
+    def urlopen_finto(req, timeout=None):
+        viste["auth"] = req.get_header("Authorization")
+        return Risposta()
+
+    monkeypatch.setattr("urllib.request.urlopen", urlopen_finto)
+    client.invia_chat("http://x", {"model": "m"})
+    assert viste["auth"] is None

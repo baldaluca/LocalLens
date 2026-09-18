@@ -174,3 +174,36 @@ def test_disponibilita_quattro_combinazioni(tmp_path, monkeypatch):
             "locallens.config.pesi.snapshot_completo", lambda p, c=None: snap
         )
         assert fab.disponibilita_gpu_locale(_info(), preset, bins_root=tmp_path) is atteso
+
+
+def test_esterno_cloud_usa_token_modello_prompt():
+    preset = load_preset("presets/glm-ocr-q8_0.toml")
+    conf = {
+        "sorgente": "esterno",
+        "url_esterno": "http://127.0.0.1:8000",
+        "token_esterno": "tk-segreto",
+        "modello_esterno": "vision-x",
+        "prompt_esterno": "Leggi tutto.",
+    }
+    viste = {}
+
+    def crea_cloud(url, **k):
+        viste.update(url=url, **k)
+        return "engine-cloud"
+
+    eng, stato, banner = costruisci(conf, _info(), preset, crea_cloud=crea_cloud)
+    assert eng == "engine-cloud"
+    assert viste["url"] == "http://127.0.0.1:8000"
+    assert viste["modello"] == "vision-x"
+    assert viste["prompt"] == "Leggi tutto."
+    assert viste["token"] == "tk-segreto"
+    assert stato.startswith("esterno")
+    assert banner == ""
+
+
+def test_esterno_senza_modello_resta_preset():
+    preset = load_preset("presets/glm-ocr-q8_0.toml")
+    conf = {"sorgente": "esterno", "url_esterno": "http://127.0.0.1:8011"}
+    crea = lambda url, p, motore, **k: ("engine", url, motore)
+    eng, _stato, _banner = costruisci(conf, _info(), preset, crea=crea)
+    assert eng == ("engine", "http://127.0.0.1:8011", "esterno")

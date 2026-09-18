@@ -116,3 +116,25 @@ def test_label_gpu_locale_e_flag(qapp):
     assert voci == ["esterno", "nessuno"]
     d2.set_sorgente("esterno")
     assert d2.valori()["sorgente"] == "esterno"
+
+
+def test_esterno_mostra_cloud_e_nasconde_preset(qapp):
+    d = DialogoImpostazioni(preset_ids=["glm-ocr-q8_0"])
+    assert not d.preset.isHidden()
+    assert d.token.isHidden() and d.modello.isHidden() and d.prompt.isHidden()
+    d.set_sorgente("esterno")
+    assert d.etichetta_preset.isHidden()
+    assert d.preset.isHidden()
+    assert not d.token.isHidden()
+    assert not d.modello.isHidden()
+    assert not d.prompt.isHidden()
+    d.token.setText("tk")
+    d.modello.setText("vision-x")
+    d.prompt.setPlainText("Leggi.")
+    v = d.valori()
+    assert v["token_esterno"] == "tk"
+    assert v["modello_esterno"] == "vision-x"
+    assert v["prompt_esterno"] == "Leggi."
+    d.set_sorgente("bundlato")
+    assert not d.preset.isHidden()
+    assert d.token.isHidden()

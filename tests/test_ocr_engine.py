@@ -104,3 +104,30 @@ def test_diario_riceve_scartato_in_extra():
     eng.submit_document([b"a"], diario=DiarioFake())
     assert registrati[0]["motore_usato"] == "cpu-tesseract"
     assert registrati[0]["extra"]["scartato"] == loop
+
+
+def test_crea_engine_cloud_usa_modello_prompt_token():
+    from locallens.core.orchestrator import crea_engine_cloud
+
+    visti = {}
+
+    def post_ok(url, payload):
+        visti["url"] = url
+        visti["payload"] = payload
+        return {"choices": [{"message": {"content": "dal-cloud"}}]}
+
+    eng = crea_engine_cloud(
+        "http://cloud:8000",
+        modello="vision-x",
+        prompt="Leggi tutto.",
+        token="tk",
+        post=post_ok,
+        fallback=lambda p, i: "fb",
+    )
+    with open("tests/assets/ocr-test-01.png", "rb") as f:
+        job = eng.get_result(eng.submit_document([f.read()]))
+    assert job.estrazioni[0].testo == "dal-cloud"
+    assert job.estrazioni[0].motore_usato == "esterno"
+    assert visti["payload"]["model"] == "vision-x"
+    assert "Leggi tutto." in visti["payload"]["messages"][0]["content"]
+    assert visti["url"] == "http://cloud:8000/v1/chat/completions"

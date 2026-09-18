@@ -159,3 +159,47 @@ def crea_engine(
         lingue_attese=lingue_attese, soglia_righe_loop=soglia_righe_loop,
         ignora_eco=ignora_eco,
     )
+
+
+def crea_engine_cloud(
+    base_url: str,
+    modello: str,
+    prompt: str,
+    token: str = "",
+    sorgente: str = "esterno",
+    post=None,
+    fallback=None,
+    max_side: int = 2048,
+    max_tokens: int = 2048,
+    contrasto: bool = False,
+    timeout: int = 600,
+    lingue_attese: tuple[str, ...] = ("it",),
+    soglia_righe_loop: int = 5,
+    ignora_eco: bool = False,
+) -> OcrEngine:
+    """Engine per servizio cloud OpenAI-compatibile: tutto a mano, nessun preset."""
+    from locallens.fallback.tesseract import estrai as tesseract_estrai
+    from locallens.preprocessing.immagini import prepara
+
+    def infer(pagina_id: int, png: bytes) -> tuple[str, str]:
+        try:
+            pronta = prepara(png, max_side=max_side, contrasto=contrasto)
+        except Exception as e:
+            from locallens.core.errori import InferenzaError
+
+            raise InferenzaError(f"preprocessing fallito: {e}") from e
+        payload = build_chat_payload(
+            base64.b64encode(pronta).decode(), prompt, modello,
+            max_tokens=max_tokens,
+        )
+        testo = invia_chat(base_url, payload, post=post, timeout=timeout, token=token or None)
+        return testo, "esterno"
+
+    def fb_default(_pagina_id: int, png: bytes) -> str:
+        return tesseract_estrai(png)
+
+    return OcrEngine(
+        infer=infer, fallback=fallback or fb_default, sorgente=sorgente,
+        lingue_attese=lingue_attese, soglia_righe_loop=soglia_righe_loop,
+        ignora_eco=ignora_eco,
+    )
