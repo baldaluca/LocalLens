@@ -1,6 +1,6 @@
 # LocalLens
 
-Estrazione OCR desktop interamente locale con inferenza GPU quando disponibile e fallback CPU.
+Estrazione OCR desktop con inferenza su GPU locale quando disponibile, server esterno o cloud opzionale, e fallback CPU.
 
 ## Language
 
@@ -31,3 +31,9 @@ _Avoid_: immagine, foglio
 **Estrazione**:
 Testo risultato dell'inferenza su una singola Pagina, con indicazione del motore usato.
 _Avoid_: OCR, output, risultato
+
+### Applicazione
+
+**LinguaInterfaccia**:
+Lingua dei testi dell'interfaccia, italiano oppure inglese, commutabile a caldo dalle Impostazioni.
+_Avoid_: locale, lingue filtro

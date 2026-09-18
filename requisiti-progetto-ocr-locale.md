@@ -2,15 +2,15 @@
 ## App OCR desktop multipiattaforma con inferenza locale GPU-accelerata
 
 **Nome progetto:** LocalLens
-**Versione:** 2.0
-**Data:** 15 settembre 2026
+**Versione:** 2.1
+**Data:** 18 settembre 2026 (rev: cloud esterno opzionale, token solo sessione, interfaccia IT/EN)
 **Piattaforme target:** Linux e Windows (prioritarie v1); macOS non nel perimetro v1
 
 ---
 
 ## 1. Obiettivo del progetto
 
-Realizzare un'applicazione desktop **multipiattaforma**, con **Linux e Windows come piattaforme prioritarie per la v1** (macOS rimandato a una versione successiva), che esegua OCR (estrazione di testo da immagini/documenti) interamente in locale, sfruttando l'accelerazione GPU quando disponibile — **indipendentemente dal vendor** (NVIDIA, AMD, Intel, Apple Silicon) — con fallback automatico su CPU quando non lo è, senza mai dipendere da servizi cloud o API esterne.
+Realizzare un'applicazione desktop **multipiattaforma**, con **Linux e Windows come piattaforme prioritarie per la v1** (macOS rimandato a una versione successiva), che esegua OCR (estrazione di testo da immagini/documenti) prioritariamente in locale, sfruttando l'accelerazione GPU quando disponibile — **indipendentemente dal vendor** (NVIDIA, AMD, Intel, Apple Silicon) — con fallback automatico su CPU quando non lo è. Dalla v2.1 è ammesso come opzione esplicita un server esterno o cloud (URL + modello + prompt a mano, token solo in sessione mai salvato), con avviso privacy su URL non locali.
 
 ---
 
@@ -56,11 +56,11 @@ Nota: con 6 GB di VRAM e un'architettura molto più recente della GTX 960M, ques
 - Interfaccia desktop nativa per **Linux e Windows** (piattaforme prioritarie v1)
 - Rilevamento automatico del backend GPU disponibile (CUDA/HIP/Metal/Vulkan) con fallback CPU (Tesseract) quando nessun backend GPU è utilizzabile
 - Preset di modello OCR selezionabili in base alla VRAM rilevata a runtime
-- Configurazione della sorgente del modello OCR: backend bundlato automatico (default), URL di un server `llama.cpp` esterno inserito manualmente, oppure nessun modello locale (solo fallback Tesseract)
+- Configurazione della sorgente del modello OCR: GPU locale (server all'URL configurato, voce mostrata solo se binari e pesi rilevati, altrimenti ripiego su esterno), server esterno o cloud con URL + modello + prompt inseriti manualmente (dialetto Ollama `/api/chat` riconosciuto da URL, token API solo in sessione mai salvato), oppure nessun modello locale (solo fallback Tesseract)
 - Salvataggio/copia del testo estratto
+- Interfaccia in italiano o inglese, commutabile a caldo dalle Impostazioni
 
 ### Fuori ambito (v1)
-- OCR tramite servizi cloud o API esterne (per qualunque motivo, anche come opzione)
 - Training o fine-tuning di modelli
 - Acceleratori non coperti da CUDA/HIP/Metal/Vulkan (NPU dedicate, TPU, ecc.) — valutabile in v2
 - Versione mobile o web pubblica

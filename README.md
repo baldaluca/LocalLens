@@ -1,7 +1,11 @@
-# LocalLens — OCR desktop interamente locale
+# LocalLens — OCR desktop con GPU locale e cloud opzionale
 
-Estrazione testo da immagini e PDF con inferenza GPU (NVIDIA/AMD/Intel via
-`llama.cpp`: CUDA, HIP/ROCm, Vulkan) e fallback CPU (Tesseract). Nessun cloud.
+Estrazione testo da immagini e PDF con tre Sorgenti: GPU locale (server
+`llama.cpp` all'URL configurato, rilevato solo se binari e pesi sono presenti),
+server esterno o cloud (URL + modello + prompt a mano, anche Ollama `/api/chat`),
+oppure nessuno (solo CPU via Tesseract). Il Token API vive solo in sessione:
+mai salvato su disco, pulito alla chiusura. Interfaccia in italiano o inglese,
+commutabile a caldo dalle Impostazioni.
 
 ## Requisiti
 
@@ -22,7 +26,7 @@ uv run python -m locallens                # GUI (oppure: uv run locallens)
 ## Test
 
 ```bash
-uv run --with pytest pytest -q                 # unit (live skippati di default)
+uv run --with pytest pytest tests/ -q       # unit (live skippati di default)
 uv run --with ruff ruff check src tests tools
 uv run --with mypy mypy src/locallens/
 ```
