@@ -5,13 +5,13 @@
 ![GUI](https://img.shields.io/badge/gui-PySide6-green)
 ![Tests](https://img.shields.io/badge/tests-233%20passed-brightgreen)
 
-Desktop OCR app: extract text from images and PDFs using a local GPU server, an external/cloud server, or plain CPU.
+Desktop OCR app: extract text from images and PDFs using models you run locally, external token-based models, or plain CPU.
 
 ## Features
 
 - 📄 OCR from **images and PDFs** (file, clipboard, screenshot)
-- 🖥️ **GPU locale** — talks to a `llama.cpp` server at your URL (health-checked, nothing auto-started)
-- ☁️ **External / cloud** — manual URL + model + prompt, with Ollama `/api/chat` auto-detected; API token lives **only in memory**, never saved, cleared on close
+- 🖥️ **GPU locale** — models you run yourself (llama.cpp, Ollama, LM Studio…), used at their own URL
+- ☁️ **External** — models at an external URL requiring an API token; token lives **only in memory**, never saved, cleared on close
 - 🔤 **CPU fallback** via Tesseract (PSM 6), with fail-fast on degenerate model output
 - 🌍 UI in **Italian or English**, switchable live from Settings
 - 🌓 Light / dark themes, per-page engine badge, JSONL run diary
@@ -39,8 +39,8 @@ Requirements: Python ≥ 3.11, [uv](https://docs.astral.sh/uv/), Tesseract (`apt
 
 | Source | What it does |
 |---|---|
-| **GPU locale** | Uses the server at its own URL (kept separate from the external one). Shown only if binaries + weights are detected, otherwise it falls back to external with a banner. |
-| **External** | Local server or cloud, fully manual: URL (verbatim), model, prompt, API token (session-only). Privacy warning on non-local URLs. |
+| **GPU locale** | Models you run locally — via llama.cpp, Ollama, LM Studio, etc. Uses the server at its own URL (kept separate from the external one). Shown only if binaries + weights are detected, otherwise it falls back to external with a banner. |
+| **External** | Models at an external URL that require an API token: URL (verbatim) + model + prompt + token (session-only, never saved). Privacy warning on non-local URLs. |
 | **None** | Tesseract only. |
 
 Presets (`presets/*.toml`) apply to local servers; cloud uses your manual model + prompt.
