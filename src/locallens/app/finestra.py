@@ -133,6 +133,15 @@ class MainWindow(QMainWindow):
         self.testo.setReadOnly(True)
         self.testo.setPlainText(TESTO_VUOTO)
         layout_destra.addWidget(self.testo)
+        self._filtrata: int | None = None
+        # Pulsante ripristino vista completa (sopra il testo, visibile solo quando filtrata)
+        self.btn_tutte = QPushButton(t("it", "btn_mostra_tutte"))
+        self.btn_tutte.setProperty("secondario", "true")
+        self.btn_tutte.setMinimumHeight(32)
+        self.btn_tutte.hide()
+        self.btn_tutte.clicked.connect(lambda: self._mostra_tutte())
+        layout_destra.insertWidget(0, self.btn_tutte)
+        self.lista.itemClicked.connect(lambda item: self._filtra_per_riga(self.lista.row(item)))
 
         Azioni = QHBoxLayout()
         Azioni.setSpacing(8)
@@ -204,6 +213,8 @@ class MainWindow(QMainWindow):
         self.btn_annulla.setText(t(lingua, "btn_annulla"))
         self.btn_copia.setText(t(lingua, "btn_copia"))
         self.btn_salva.setText(t(lingua, "btn_salva"))
+        if hasattr(self, "btn_tutte"):
+            self.btn_tutte.setText(t(lingua, "btn_mostra_tutte"))
         self.btn_setup.setText(t(lingua, "btn_impostazioni"))
         self.btn_tema.setText(t(lingua, "btn_tema", nome=nome_tema_display(lingua, self.tema_corrente)))
         if self._correnti:
@@ -453,8 +464,10 @@ class MainWindow(QMainWindow):
 
         t_tema = TEMI[self.tema_corrente]
         self._correnti = list(estrazioni)
+        self._filtrata = None
+        if hasattr(self, "btn_tutte"):
+            self.btn_tutte.hide()
         self.lista.clear()
-        testi = []
         lingua = self._lingua()
         modello_esterno = str(self.conf.get("modello_esterno", "") or "")
         for e in estrazioni:
@@ -471,19 +484,33 @@ class MainWindow(QMainWindow):
             item.setData(Qt.ItemDataRole.UserRole, e.motore_usato)
             item.setForeground(QColor(t_tema["fallback" if caduta else "success"]))
             self.lista.addItem(item)
-            testi.append(
-                t(
-                    lingua,
-                    "blocco_pagina",
-                    id=e.pagina_id,
-                    motore=e.motore_usato,
-                    tempo=tempo_breve(e.ms),
-                    testo=e.testo,
-                )
-            )
             if caduta:
                 self.mostra_banner(t(lingua, "banner_fallback_cpu", id=e.pagina_id))
-        self.testo.setPlainText("\n\n".join(testi) if testi else t(lingua, "testo_vuoto"))
+        # Output markdown pulito: solo testi, nessuna intestazione Pagina
+        if estrazioni:
+            corpo = "\n\n".join(e.testo for e in estrazioni)
+        else:
+            corpo = t(lingua, "testo_vuoto")
+        self.testo.setPlainText(corpo)
+        self._aggiorna_bottoni()
+
+    def _filtra_per_riga(self, row: int) -> None:
+        if row < 0 or row >= len(self._correnti):
+            return
+        self._filtrata = row
+        self.testo.setPlainText(self._correnti[row].testo)
+        if hasattr(self, "btn_tutte"):
+            self.btn_tutte.show()
+        self._aggiorna_bottoni()
+
+    def _mostra_tutte(self) -> None:
+        if not self._correnti:
+            return
+        self._filtrata = None
+        self.lista.clearSelection()
+        if hasattr(self, "btn_tutte"):
+            self.btn_tutte.hide()
+        self.testo.setPlainText("\n\n".join(e.testo for e in self._correnti))
         self._aggiorna_bottoni()
 
     def aggiorna_intestazione(self) -> None:
@@ -543,16 +570,35 @@ class MainWindow(QMainWindow):
                 t(self._lingua(), "salva_messaggio"),
             )
             return
+        # Default markdown: aggiunge .md se l'utente non ha messo estensione
+        from pathlib import Path
+
+        p = Path(percorso)
+        if not p.suffix:
+            percorso = str(p.with_suffix(".md"))
         with open(percorso, "w", encoding="utf-8") as f:
             f.write(self.testo.toPlainText())
 
     def _salva_file(self) -> None:
+        from pathlib import Path
+
         from PySide6.QtWidgets import QFileDialog
 
+        # Propone nome del file originale con estensione .md (solo nome, senza percorso)
+        suggerito = ""
+        base = (self.doc.toolTip() or self.doc.text() or "").strip()
+        # Rimuove suffisso " — N pagine" aggiunto dopo l'elaborazione
+        base = base.split(" — ")[0].strip()
+        if base and base not in (t("it", "nessun_documento"), t("en", "nessun_documento")) and " immagini" not in base and " images" not in base:
+            p = Path(base)
+            if p.suffix:
+                suggerito = p.stem + ".md"
+            else:
+                suggerito = base + ".md"
         percorso, _ = QFileDialog.getSaveFileName(
             self,
             t(self._lingua(), "dialogo_salva_titolo"),
-            "",
+            suggerito,
             t(self._lingua(), "dialogo_salva_filtro"),
         )
         if percorso:

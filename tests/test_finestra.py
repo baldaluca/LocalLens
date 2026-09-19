@@ -462,7 +462,10 @@ def test_applica_lingua_ritraduce_lista(qapp):
     w.conf["lingua"] = "en"
     w.applica_lingua()
     assert "Page 1" in w.lista.item(0).text()
-    assert "── Page 2" in w.testo.toPlainText()
+    assert "riga due" in w.testo.toPlainText()
+    assert "## Page" not in w.testo.toPlainText()
+    assert "GPU" not in w.testo.toPlainText()
+    assert "Local GPU" not in w.testo.toPlainText()
     assert t("en", "testo_vuoto") not in w.testo.toPlainText()
 
 
