@@ -1,6 +1,6 @@
 """Finestra principale. Parla solo con core via OcrWorker, mai con backend/URL ( §8)."""
 
-from PySide6.QtCore import QThreadPool
+from PySide6.QtCore import Qt, QThreadPool
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import (
     QHBoxLayout,
@@ -56,6 +56,23 @@ def tempo_breve(ms: int) -> str:
     if ms < 1000:
         return f"{ms} ms"
     return f"{round(ms / 1000)} s"
+
+
+_MOTORI_LOCALI = {"cuda", "hip", "vulkan", "bundlato", "cpu-llama"}
+
+
+def etichetta_motore(lingua: str, motore_usato: str, modello_esterno: str = "") -> str:
+    """Etichetta comprensibile per la lista Pagine: nasconde i nomi tecnici BackendGpu."""
+    if motore_usato == "cpu-tesseract":
+        return t(lingua, "motore_cpu")
+    if motore_usato == "esterno":
+        nome = (modello_esterno or "").strip()
+        if nome:
+            return nome if len(nome) <= 28 else nome[:27] + "…"
+        return t(lingua, "motore_esterno_generico")
+    if motore_usato in _MOTORI_LOCALI:
+        return t(lingua, "motore_locale")
+    return motore_usato
 
 
 def _icona(nome_tema: str, standard: QStyle.StandardPixmap, widget) -> QIcon:
@@ -225,11 +242,12 @@ class MainWindow(QMainWindow):
 
         from locallens.app.tema import TEMI
 
-        t = TEMI[self.tema_corrente]
+        colori = TEMI[self.tema_corrente]
         for i in range(self.lista.count()):
             item = self.lista.item(i)
-            caduta = "cpu-tesseract" in item.text()
-            item.setForeground(QColor(t["fallback" if caduta else "success"]))
+            motore = item.data(Qt.ItemDataRole.UserRole) or ""
+            caduta = motore == "cpu-tesseract" or "cpu-tesseract" in item.toolTip()
+            item.setForeground(QColor(colori["fallback" if caduta else "success"]))
 
     def set_engine(self, engine: OcrEngine) -> None:
         self._engine = engine
@@ -438,11 +456,19 @@ class MainWindow(QMainWindow):
         self.lista.clear()
         testi = []
         lingua = self._lingua()
+        modello_esterno = str(self.conf.get("modello_esterno", "") or "")
         for e in estrazioni:
             caduta = e.motore_usato == "cpu-tesseract"
+            etichetta = etichetta_motore(lingua, e.motore_usato, modello_esterno)
+            tempo = tempo_breve(e.ms)
             item = QListWidgetItem(
-                t(lingua, "riga_pagina", id=e.pagina_id, motore=e.motore_usato, tempo=tempo_breve(e.ms))
+                t(lingua, "riga_pagina", id=e.pagina_id, motore=etichetta, tempo=tempo)
             )
+            dettaglio = e.motore_usato
+            if e.motore_usato == "esterno" and modello_esterno.strip():
+                dettaglio += f" • {modello_esterno.strip()}"
+            item.setToolTip(f"{dettaglio} • {tempo}")
+            item.setData(Qt.ItemDataRole.UserRole, e.motore_usato)
             item.setForeground(QColor(t_tema["fallback" if caduta else "success"]))
             self.lista.addItem(item)
             testi.append(

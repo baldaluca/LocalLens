@@ -73,10 +73,31 @@ def test_lista_con_badge_motore_e_testo(qapp):
     w = MainWindow()
     w.mostra_estrazioni(_estrazioni())
     assert w.lista.count() == 2
-    assert "cuda •" in w.lista.item(0).text()
-    assert "cpu-tesseract •" in w.lista.item(1).text()
+    assert "GPU locale •" in w.lista.item(0).text()
+    assert "cuda" in w.lista.item(0).toolTip()
+    assert w.lista.item(1).text().endswith("CPU • 200 ms") or "CPU •" in w.lista.item(1).text()
+    assert "cpu-tesseract" in w.lista.item(1).toolTip()
     assert "riga uno" in w.testo.toPlainText()
     assert "riga due" in w.testo.toPlainText()
+
+
+def test_lista_esterna_mostra_nome_modello(qapp):
+    w = MainWindow()
+    w.conf["modello_esterno"] = "gpt-4o-mini"
+    from locallens.core.orchestrator import Estrazione
+
+    w.mostra_estrazioni([Estrazione(pagina_id=1, testo="ciao", motore_usato="esterno", ms=3000)])
+    assert "gpt-4o-mini" in w.lista.item(0).text()
+    assert "esterno" in w.lista.item(0).toolTip()
+
+
+def test_lista_esterna_senza_modello_mostra_server_esterno(qapp):
+    w = MainWindow()
+    w.conf["modello_esterno"] = ""
+    from locallens.core.orchestrator import Estrazione
+
+    w.mostra_estrazioni([Estrazione(pagina_id=1, testo="ciao", motore_usato="esterno", ms=3000)])
+    assert "Server esterno" in w.lista.item(0).text()
 
 
 def test_copia_negli_appunti(qapp):
