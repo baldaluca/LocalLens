@@ -238,3 +238,123 @@ def test_lingua_e_prima_riga_del_dialogo(qapp):
     assert isinstance(layout, QFormLayout)
     assert layout.itemAt(0, QFormLayout.ItemRole.LabelRole).widget() is dlg.etichetta_lingua
     assert layout.itemAt(0, QFormLayout.ItemRole.FieldRole).widget() is dlg.selettore_lingua
+
+
+# -- Task 6: Config adapter seam edit(Config)->Optional[Config] --
+
+def test_dialog_edit_roundtrip(qapp):
+    from PySide6.QtWidgets import QDialog
+
+    from locallens.app.impostazioni import DialogoImpostazioni
+    from locallens.config.settings import Config
+
+    cfg = Config(lingua="en", sorgente="esterno", url_esterno="http://cloud:8000")
+    dlg = DialogoImpostazioni()
+    dlg.exec = lambda: QDialog.DialogCode.Accepted  # type: ignore[method-assign]
+    out = dlg.edit(cfg)  # returns Config copy or None
+    assert out is not None
+    assert out.sorgente == "esterno"
+    assert out.url_esterno == "http://cloud:8000"
+    assert out.lingua == "en"
+
+
+def test_dialog_edit_cancel_returns_none(qapp):
+    from PySide6.QtWidgets import QDialog
+
+    from locallens.app.impostazioni import DialogoImpostazioni
+    from locallens.config.settings import Config
+
+    cfg = Config(lingua="it", sorgente="bundlato")
+    dlg = DialogoImpostazioni()
+    dlg.exec = lambda: QDialog.DialogCode.Rejected  # type: ignore[method-assign]
+    out = dlg.edit(cfg)
+    assert out is None
+
+
+def test_dialog_edit_url_memoria_preservata(qapp):
+    """URL memoria per opzione resta nascosta dentro edit: esterno/bundlato distinti."""
+    from PySide6.QtWidgets import QDialog
+
+    from locallens.app.impostazioni import DialogoImpostazioni
+    from locallens.config.settings import Config
+
+    cfg = Config(
+        lingua="en",
+        sorgente="esterno",
+        url_esterno="http://cloud:8000",
+        url_gpu_locale="http://127.0.0.1:9000",
+    )
+    dlg = DialogoImpostazioni()
+    # user modifica solo esterno prima di Accept
+    def exec_mod():
+        dlg.url.setText("http://modified:1234")
+        return QDialog.DialogCode.Accepted
+
+    dlg.exec = exec_mod  # type: ignore[method-assign]
+    out = dlg.edit(cfg)
+    assert out.url_esterno == "http://modified:1234"
+    assert out.url_gpu_locale == "http://127.0.0.1:9000"
+
+
+def test_dialog_edit_visibility_matrix_e_privacy(qapp):
+    """Visibility matrix (nessuno nasconde URL/cloud) e privacy check restano interni."""
+    from PySide6.QtWidgets import QDialog
+
+    from locallens.app.impostazioni import DialogoImpostazioni
+    from locallens.config.settings import Config
+
+    # nessuno nasconde tutto
+    cfg = Config(sorgente="nessuno")
+    dlg = DialogoImpostazioni()
+    dlg.exec = lambda: QDialog.DialogCode.Accepted  # type: ignore[method-assign]
+    dlg.edit(cfg)
+    assert dlg.url.isHidden()
+    assert dlg.token.isHidden()
+    # esterno mostra URL+cloud e privacy su URL pubblica
+    cfg2 = Config(sorgente="esterno", url_esterno="http://203.0.113.10:8011")
+    dlg2 = DialogoImpostazioni()
+    dlg2.exec = lambda: QDialog.DialogCode.Accepted  # type: ignore[method-assign]
+    dlg2.edit(cfg2)
+    assert not dlg2.url.isHidden()
+    assert not dlg2.token.isHidden()
+    assert not dlg2.avviso.isHidden()
+    # locale non mostra avviso
+    cfg3 = Config(sorgente="esterno", url_esterno="http://127.0.0.1:8011")
+    dlg3 = DialogoImpostazioni()
+    dlg3.exec = lambda: QDialog.DialogCode.Accepted  # type: ignore[method-assign]
+    dlg3.edit(cfg3)
+    assert dlg3.avviso.isHidden()
+
+
+def test_dialog_edit_copy_not_mutate_original(qapp):
+    from PySide6.QtWidgets import QDialog
+
+    from locallens.app.impostazioni import DialogoImpostazioni
+    from locallens.config.settings import Config
+
+    cfg = Config(lingua="en", sorgente="esterno", url_esterno="http://a:8000")
+    dlg = DialogoImpostazioni()
+    dlg.exec = lambda: QDialog.DialogCode.Accepted  # type: ignore[method-assign]
+    out = dlg.edit(cfg)
+    assert out is not cfg
+    assert cfg.url_esterno == "http://a:8000"
+
+
+def test_setters_compat_delegano_a_edit(qapp):
+    """6 setter restano per compat ma edit è sole seam (accetta Config)."""
+    from locallens.app.impostazioni import DialogoImpostazioni
+
+    dlg = DialogoImpostazioni()
+    # setters still functional
+    dlg.set_sorgente("esterno")
+    dlg.set_url_esterno("http://cloud2:8000")
+    dlg.set_cloud(token="tk", modello="m", prompt="p")
+    dlg.set_contesto(lingue="it,en", soglia=9, ignora_eco=True)
+    v = dlg.valori()
+    assert v["sorgente"] == "esterno"
+    assert v["token_esterno"] == "tk"
+    # edit signature
+    import inspect
+
+    sig = inspect.signature(dlg.edit)
+    assert "config" in sig.parameters

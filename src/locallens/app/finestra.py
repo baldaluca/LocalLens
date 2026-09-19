@@ -470,84 +470,95 @@ class MainWindow(QMainWindow):
         return disponibilita_gpu_locale_da_conf(self.conf, self._preset_corrente())
 
     def _impostazioni(self) -> None:
+        from locallens.config.settings import Config, as_dict
         from locallens.core.fabbrica import normalizza_sorgente_da_conf
 
+        cfg = self.conf if isinstance(self.conf, Config) else Config.from_dict(as_dict(self.conf))
         dlg = DialogoImpostazioni(
             parent=self,
             tema=self.tema_corrente,
             gpu_locale_disponibile=self._gpu_locale_disponibile(),
-            lingua=self._conf_val("lingua", "en"),
+            lingua=cfg.lingua,
         )
-        dlg.set_sorgente(self._conf_val("sorgente", "bundlato"))
-        dlg.set_lingua(self._conf_val("lingua", "en"))
-        dlg.set_url_esterno(self._conf_val("url_esterno", ""))
-        dlg.set_url_gpu_locale(self._conf_val("url_gpu_locale", self._conf_val("url_esterno", "")))
-        dlg.set_cloud(
-            self._conf_val("token_esterno", ""),
-            self._conf_val("modello_esterno", ""),
-            self._conf_val("prompt_esterno", ""),
-        )
-        dlg.set_contesto(
-            self._conf_val("lingue_filtro", "it"),
-            int(self._conf_val("soglia_righe_loop", "5")),
-            bool(self._conf_val("ignora_eco", False)),
-        )
-        if dlg.exec():
-            valori = dlg.valori()
-            # View emits intent
-            self.settingsAccepted.emit(valori)
-            # Presenter transaction (if no legacy ricostruttore override, delegate to controller)
-            ric = getattr(self, "_ricostruttore", None)
-            if ric is None and hasattr(self, "controller"):
-                # delegate to presenter: salva_impostazioni transaction owned by DocumentController
-                stato, banner, avviso = self.controller.apply_settings(valori)
-                self._sync_view_conf_from_controller()
-                if avviso:
-                    self.mostra_banner(avviso)
-                # controller already salva and rebuilds; sync view state via signals, but ensure UI updated
-                self.applica_lingua()
-                self.aggiorna_intestazione()
-                self.set_engine(self.controller.engine)
-                self.set_stato(stato)
-                if banner and not avviso:
-                    self.mostra_banner(banner)
-                elif not banner and not avviso:
-                    self.nascondi_banner()
+        # Config adapter seam: sole seam edit(Config)->Optional[Config]
+        if hasattr(dlg, "edit"):
+            out = dlg.edit(cfg)  # type: ignore[attr-defined]
+            if out is None:
                 return
-            # Legacy path for tests with _ricostruttore injected (keeps salva_impostazioni patchable via finestra module)
-            self._conf_update(valori)
-            conf_dict = as_dict(self.conf)
-            nuovo_dict, avviso = normalizza_sorgente_da_conf(conf_dict, self._preset_corrente())
-            if isinstance(self.conf, dict):
-                self.conf = nuovo_dict
-            else:
-                self.conf = Config.from_dict(nuovo_dict)
+            valori = as_dict(out)
+        else:
+            # fallback for test mocks without edit
+            dlg.set_sorgente(self._conf_val("sorgente", "bundlato"))
+            dlg.set_lingua(self._conf_val("lingua", "en"))
+            dlg.set_url_esterno(self._conf_val("url_esterno", ""))
+            dlg.set_url_gpu_locale(self._conf_val("url_gpu_locale", self._conf_val("url_esterno", "")))
+            dlg.set_cloud(
+                self._conf_val("token_esterno", ""),
+                self._conf_val("modello_esterno", ""),
+                self._conf_val("prompt_esterno", ""),
+            )
+            dlg.set_contesto(
+                self._conf_val("lingue_filtro", "it"),
+                int(self._conf_val("soglia_righe_loop", "5")),
+                bool(self._conf_val("ignora_eco", False)),
+            )
+            if not dlg.exec():
+                return
+            valori = dlg.valori()
+        # View emits intent
+        self.settingsAccepted.emit(valori)
+        # Presenter transaction (if no legacy ricostruttore override, delegate to controller)
+        ric = getattr(self, "_ricostruttore", None)
+        if ric is None and hasattr(self, "controller"):
+            # delegate to presenter: salva_impostazioni transaction owned by DocumentController
+            stato, banner, avviso = self.controller.apply_settings(valori)
+            self._sync_view_conf_from_controller()
             if avviso:
                 self.mostra_banner(avviso)
-            salva_impostazioni(self.conf)
+            # controller already salva and rebuilds; sync view state via signals, but ensure UI updated
             self.applica_lingua()
             self.aggiorna_intestazione()
-            if ric is not None:
-                engine, stato, banner = ric(self.conf)
-            else:
-                from locallens.config.settings import Config as _Config
-
-                from locallens.core.fabbrica import EngineFactory
-
-                cfg = self.conf if isinstance(self.conf, _Config) else _Config.from_dict(as_dict(self.conf))
-                factory = EngineFactory(cfg)
-                engine, stato, banner = factory.rebuild(cfg)
-            self.set_engine(engine)
+            self.set_engine(self.controller.engine)
             self.set_stato(stato)
-            if banner:
+            if banner and not avviso:
                 self.mostra_banner(banner)
-            else:
-                if not avviso:
-                    self.nascondi_banner()
-            # sync controller
-            self._sync_controller_config()
-            if hasattr(self, "controller"):
-                self.controller.set_engine(self._engine)
+            elif not banner and not avviso:
+                self.nascondi_banner()
+            return
+        # Legacy path for tests with _ricostruttore injected (keeps salva_impostazioni patchable via finestra module)
+        self._conf_update(valori)
+        conf_dict = as_dict(self.conf)
+        nuovo_dict, avviso = normalizza_sorgente_da_conf(conf_dict, self._preset_corrente())
+        if isinstance(self.conf, dict):
+            self.conf = nuovo_dict
+        else:
+            self.conf = Config.from_dict(nuovo_dict)
+        if avviso:
+            self.mostra_banner(avviso)
+        salva_impostazioni(self.conf)
+        self.applica_lingua()
+        self.aggiorna_intestazione()
+        if ric is not None:
+            engine, stato, banner = ric(self.conf)
+        else:
+            from locallens.config.settings import Config as _Config
+
+            from locallens.core.fabbrica import EngineFactory
+
+            cfg = self.conf if isinstance(self.conf, _Config) else _Config.from_dict(as_dict(self.conf))
+            factory = EngineFactory(cfg)
+            engine, stato, banner = factory.rebuild(cfg)
+        self.set_engine(engine)
+        self.set_stato(stato)
+        if banner:
+            self.mostra_banner(banner)
+        else:
+            if not avviso:
+                self.nascondi_banner()
+        # sync controller
+        self._sync_controller_config()
+        if hasattr(self, "controller"):
+            self.controller.set_engine(self._engine)
 
     def avvia(
         self, immagini: list[bytes], engine: OcrEngine, documento: str = ""

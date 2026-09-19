@@ -1,5 +1,9 @@
 """Sorgente modello (RF10) + avviso privacy su URL non locale (RNF1)."""
 
+from __future__ import annotations
+
+from typing import Optional
+
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QCheckBox,
@@ -149,6 +153,58 @@ class DialogoImpostazioni(QDialog):
         self.lingue.setText(lingue)
         self.soglia.setValue(soglia)
         self.ignora_eco.setChecked(ignora_eco)
+
+    # -- Config adapter seam (sole seam) --
+
+    def _carica_da_config(self, cfg) -> None:
+        """Popola UI da Config (hide URL memoria, visibility matrix)."""
+        # memorie URL prima di cambiare sorgente per evitare parking sovrascritture
+        self._url_memoria["esterno"] = cfg.url_esterno
+        self._url_memoria["bundlato"] = cfg.url_gpu_locale
+        self.set_lingua(cfg.lingua)
+        # sorgente senza segnali intermedi
+        self.sorgente.blockSignals(True)
+        if cfg.sorgente in self._sorgente_ids:
+            self.sorgente.setCurrentIndex(self._sorgente_ids.index(cfg.sorgente))
+        self.sorgente.blockSignals(False)
+        self._opzione_precedente = self._id_corrente()
+        if self._opzione_precedente in self._url_memoria:
+            self.url.blockSignals(True)
+            self.url.setText(self._url_memoria[self._opzione_precedente])
+            self.url.blockSignals(False)
+        self.set_cloud(cfg.token_esterno, cfg.modello_esterno, cfg.prompt_esterno)
+        self.set_contesto(cfg.lingue_filtro, cfg.soglia_righe_loop, cfg.ignora_eco)
+        self._aggiorna_avviso()
+        self._aggiorna_viste()
+
+    def _costruisci_config(self, base) -> "Config":
+        """Raccoglie valori UI e restituisce Config copy validata."""
+        from dataclasses import fields, replace
+
+        v = self.valori()
+        # filtra solo campi Config
+        cfg_fields = {f.name for f in fields(base)}
+        filtrati = {k: v[k] for k in v if k in cfg_fields}
+        nuovo = replace(base, **filtrati)
+        # validated resta dentro Config
+        try:
+            return nuovo.validated()  # type: ignore[attr-defined]
+        except Exception:
+            return nuovo
+
+    def edit(self, config: "Config") -> Optional["Config"]:
+        """Seam Config: popola da Config, exec(), ritorna Config copy o None.
+
+        Nasconde URL memoria, visibility matrix e privacy check all'interno.
+        """
+        from locallens.config.settings import Config
+
+        if not isinstance(config, Config):
+            raise TypeError("edit() requires Config")
+        self._carica_da_config(config)
+        if self.exec() == QDialog.DialogCode.Accepted:
+            return self._costruisci_config(config)  # type: ignore[return-value]
+        return None
 
     def _riga_aiuto(self, layout, etichetta: str, campo, chiave: str):
         """Riga campo + '?' che espande la spiegazione sotto (collassata di default)."""
