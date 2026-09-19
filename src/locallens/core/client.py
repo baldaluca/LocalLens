@@ -1,4 +1,5 @@
 """Client HTTP per /v1/chat/completions. Prompt/modello dal preset, mai hardcoded."""
+import base64
 import json
 import urllib.error
 import urllib.request
@@ -110,3 +111,64 @@ def invia_chat(
     except Exception as e:
         raise InferenzaError(f"chiamata chat fallita: {e}") from e
     return parse_chat_text(risposta)
+
+
+class HttpInferAdapter:
+    """Adapter HTTP: prepara immagine → payload → invia_chat. Unico seam HTTP."""
+
+    def __init__(
+        self,
+        base_url: str,
+        preset=None,
+        modello: str = "",
+        prompt: str = "",
+        token: str = "",
+        max_side: int = 2048,
+        contrasto: bool = False,
+        timeout: int = 600,
+        post: Callable[[str, dict], dict] | None = None,
+        motore: str = "cuda",
+        max_tokens: int = 2048,
+        sorgente: str = "bundlato",
+    ) -> None:
+        self.base_url = base_url
+        self.preset = preset
+        self.modello = modello
+        self.prompt = prompt
+        self.token = token
+        self.max_side = max_side
+        self.contrasto = contrasto
+        self.timeout = timeout
+        self.post = post
+        self.motore = motore
+        self.max_tokens = max_tokens
+        self.sorgente = sorgente
+
+    def __call__(self, pagina_id: int, png: bytes) -> tuple[str, str]:
+        from locallens.preprocessing.immagini import prepara
+
+        if self.sorgente == "esterno":
+            try:
+                pronta = prepara(png, max_side=self.max_side, contrasto=self.contrasto)
+            except Exception as e:
+                raise InferenzaError(f"preprocessing fallito: {e}") from e
+            b64 = base64.b64encode(pronta).decode()
+            if dialetto(self.base_url) == "ollama":
+                payload = build_ollama_payload(b64, self.prompt, self.modello, max_tokens=self.max_tokens)
+            else:
+                payload = build_chat_payload(b64, self.prompt, self.modello, max_tokens=self.max_tokens)
+            testo = invia_chat(self.base_url, payload, post=self.post, timeout=self.timeout, token=self.token or None)
+            return testo, "esterno"
+        # bundlato
+        preset = self.preset
+        prompt_local = preset.prompt.get("system", "Transcribe.") if preset else self.prompt or "Transcribe."
+        limite = min(self.max_side, preset.max_side_px) if preset else self.max_side
+        try:
+            pronta = prepara(png, max_side=limite, contrasto=self.contrasto)
+        except Exception as e:
+            raise InferenzaError(f"preprocessing fallito: {e}") from e
+        modello_id = preset.id if preset else self.modello
+        max_tok = preset.max_tokens if preset else self.max_tokens
+        payload = build_chat_payload(base64.b64encode(pronta).decode(), prompt_local, modello_id, max_tokens=max_tok)
+        endpoint = self.base_url.rstrip("/") + "/v1/chat/completions"
+        return invia_chat(endpoint, payload, post=self.post, timeout=self.timeout), self.motore

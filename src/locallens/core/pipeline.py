@@ -1,16 +1,18 @@
-"""Pipeline Documento → Pagine → Estrazioni. Sequenziale, 1 retry su errore/vuoto, fail-fast su anomalia, poi fallback CPU."""
+"""Pipeline Documento → Pagine → Estrazioni. Deep: OcrPipeline con singola interfaccia submit."""
+
 import re
 import time
 import unicodedata
 import urllib.error
+import uuid
 import zlib
 from collections import Counter
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from locallens.core.errori import InferenzaError
 
-__all__ = ["EstrazionePagina", "InferenzaError", "elabora_pagine"]
+__all__ = ["EstrazionePagina", "Estrazione", "OcrConfig", "OcrJob", "OcrPipeline", "InferenzaError", "elabora_pagine"]
 
 
 @dataclass(frozen=True)
@@ -23,8 +25,30 @@ class EstrazionePagina:
     scartato: str | None = None  # output VLM rifiutato dal filtro (audit diario)
 
 
+# Alias per compatibilità con orchestrator / finestra
+Estrazione = EstrazionePagina
+
+
 #: Tetto dello scartato conservato: il diario resta leggibile anche su loop lunghi.
 MAX_SCARTATO = 2000
+
+
+@dataclass(frozen=True)
+class OcrConfig:
+    """Config per OcrPipeline.submit: unione di sorgente + contesto filtro."""
+
+    sorgente: str = "bundlato"
+    lingue_attese: tuple[str, ...] = ("it",)
+    soglia_righe_loop: int = 5
+    ignora_eco: bool = False
+
+
+@dataclass
+class OcrJob:
+    job_id: str
+    documento: str
+    stato: str = "queued"  # queued | processing | done | failed | cancelled
+    estrazioni: list[EstrazionePagina] = field(default_factory=list)
 
 
 _STOP_IT = frozenset(
@@ -198,6 +222,217 @@ def _è_timeout(e: InferenzaError) -> bool:
     )
 
 
+def _resolve_config(
+    config,
+    defaults: dict,
+) -> dict:
+    """Normalizza config (OcrConfig | Config | dict | None) a dict effettivo."""
+    if config is None or config is Ellipsis:
+        return dict(defaults)
+    # dict
+    if isinstance(config, dict):
+        out = dict(defaults)
+        # handle lingue_filtro → lingue_attese
+        if "lingue_filtro" in config and "lingue_attese" not in config:
+            lf = str(config.get("lingue_filtro", "") or "")
+            lingue = tuple(s.strip() for s in lf.split(",") if s.strip()) or defaults.get("lingue_attese", ("it",))
+            out["lingue_attese"] = lingue
+            # still allow other keys
+        for k in ("sorgente", "lingue_attese", "soglia_righe_loop", "ignora_eco"):
+            if k in config:
+                out[k] = config[k]
+        # also allow explicit lingue_attese as string?
+        if isinstance(out.get("lingue_attese"), str):
+            out["lingue_attese"] = tuple(s.strip() for s in str(out["lingue_attese"]).split(",") if s.strip()) or ("it",)
+        return out
+    # object with attributes (OcrConfig, Config dataclass)
+    out = dict(defaults)
+    for k in ("sorgente", "lingue_attese", "soglia_righe_loop", "ignora_eco"):
+        if hasattr(config, k):
+            try:
+                v = getattr(config, k)
+                out[k] = v
+            except Exception:
+                pass
+    # Config has lingue_filtro not lingue_attese
+    if hasattr(config, "lingue_filtro") and not hasattr(config, "lingue_attese"):
+        try:
+            lf = str(getattr(config, "lingue_filtro"))
+            lingue = tuple(s.strip() for s in lf.split(",") if s.strip()) or defaults.get("lingue_attese", ("it",))
+            out["lingue_attese"] = lingue
+        except Exception:
+            pass
+    if isinstance(out.get("lingue_attese"), str):
+        out["lingue_attese"] = tuple(s.strip() for s in str(out["lingue_attese"]).split(",") if s.strip()) or ("it",)
+    return out
+
+
+class OcrPipeline:
+    """Deep module: unica interfaccia submit owning retry, anomalia, fallback, diario."""
+
+    def __init__(
+        self,
+        infer: Callable[[int, bytes], tuple[str, str]] | None = None,
+        fallback: Callable[[int, bytes], str] | None = None,
+        sorgente: str = "bundlato",
+        lingue_attese: tuple[str, ...] = ("it",),
+        soglia_righe_loop: int = 5,
+        ignora_eco: bool = False,
+    ) -> None:
+        if infer is None or fallback is None:
+            raise ValueError("infer e fallback vanno iniettati")
+        self._infer = infer
+        self._fallback = fallback
+        self._sorgente = sorgente
+        self._lingue_attese = tuple(lingue_attese)
+        self._soglia_righe_loop = soglia_righe_loop
+        self._ignora_eco = ignora_eco
+        self._jobs: dict[str, OcrJob] = {}
+
+    def submit(
+        self,
+        immagini: list[bytes],
+        config: OcrConfig | dict | object | None = None,
+        ferma: Callable[[], bool] | None = None,
+        diario=None,
+        on_page: Callable[[EstrazionePagina, int, int], None] | None = None,
+    ) -> list[EstrazionePagina]:
+        """Singola interfaccia: per ogni Pagina infer→retry/anomalia→fallback con audit diario."""
+        defaults = {
+            "sorgente": self._sorgente,
+            "lingue_attese": self._lingue_attese,
+            "soglia_righe_loop": self._soglia_righe_loop,
+            "ignora_eco": self._ignora_eco,
+        }
+        cfg = _resolve_config(config, defaults)
+        sorgente: str = cfg.get("sorgente", self._sorgente)
+        lingue_attese: tuple[str, ...] = tuple(cfg.get("lingue_attese", self._lingue_attese))
+        soglia_righe_loop: int = int(cfg.get("soglia_righe_loop", self._soglia_righe_loop))
+        ignora_eco: bool = bool(cfg.get("ignora_eco", self._ignora_eco))
+
+        out: list[EstrazionePagina] = []
+        totale = len(immagini)
+        for i, img in enumerate(immagini, start=1):
+            if ferma is not None and ferma():
+                break
+            t0 = time.monotonic()
+            if sorgente == "nessuno":
+                testo = self._fallback(i, img)
+                nota = "sorgente=nessuno"
+                if not testo.strip():
+                    nota += "; fallback vuoto"
+                estrazione = EstrazionePagina(i, testo, "cpu-tesseract", _ms(t0), nota)
+                out.append(estrazione)
+                if on_page is not None:
+                    on_page(estrazione, i, totale)
+                if diario is not None:
+                    diario.registra_pagina(
+                        pagina_id=estrazione.pagina_id,
+                        ms=estrazione.ms,
+                        motore_usato=estrazione.motore_usato,
+                        chars=len(estrazione.testo),
+                        nota=estrazione.nota,
+                        extra={"scartato": estrazione.scartato} if estrazione.scartato else None,
+                    )
+                continue
+            ultimo_errore: str | None = None
+            respinto: str | None = None
+            riuscito: EstrazionePagina | None = None
+            for _ in range(2):
+                try:
+                    testo, motore = self._infer(i, img)
+                    if not testo.strip():
+                        ultimo_errore = "output vuoto/anomalo"
+                        continue
+                    motivo = _motivo_anomalia(
+                        testo,
+                        lingue_attese=lingue_attese,
+                        soglia_righe_loop=soglia_righe_loop,
+                        ignora_eco=ignora_eco,
+                    )
+                    if motivo is not None:
+                        ultimo_errore = motivo + "; fail-fast (senza retry)"
+                        respinto = testo[:MAX_SCARTATO]
+                        break
+                    riuscito = EstrazionePagina(i, testo, motore, _ms(t0))
+                    break
+                except InferenzaError as e:
+                    ultimo_errore = str(e)
+                    if _è_timeout(e):
+                        break
+                    continue
+            if riuscito is None:
+                testo = self._fallback(i, img)
+                nota_fallback: str | None = ultimo_errore
+                corpo = testo.strip()
+                if not corpo:
+                    nota_fallback = ((ultimo_errore + "; ") if ultimo_errore else "") + "fallback vuoto"
+                elif len(corpo) < 20:
+                    nota_fallback = ((ultimo_errore + "; ") if ultimo_errore else "") + (
+                        f"fallback debole ({len(corpo)} char)"
+                    )
+                riuscito = EstrazionePagina(i, testo, "cpu-tesseract", _ms(t0), nota_fallback, respinto)
+            out.append(riuscito)
+            if on_page is not None:
+                on_page(riuscito, i, totale)
+            if diario is not None:
+                diario.registra_pagina(
+                    pagina_id=riuscito.pagina_id,
+                    ms=riuscito.ms,
+                    motore_usato=riuscito.motore_usato,
+                    chars=len(riuscito.testo),
+                    nota=riuscito.nota,
+                    extra={"scartato": riuscito.scartato} if riuscito.scartato else None,
+                )
+        if diario is not None:
+            stato = "cancelled" if (ferma is not None and ferma()) else "done"
+            try:
+                diario.chiudi(stato=stato)
+            except Exception:
+                pass
+        return out
+
+    # --- Compatibilità orchestrator (job registry) ---
+    def submit_document(
+        self,
+        immagini: list[bytes],
+        documento: str = "",
+        on_page=None,
+        diario=None,
+        ferma: Callable[[], bool] | None = None,
+        config=None,
+    ) -> str:
+        job_id = uuid.uuid4().hex[:8]
+        job = OcrJob(job_id=job_id, documento=documento, stato="processing")
+        self._jobs[job_id] = job
+        # callback merging già gestito da submit; costruiamo on_page combinato se necessario via submit direttamente
+        # Per compatibilità, lasciamo che submit gestisca diario/on_page
+        pagine = self.submit(immagini, config=config, ferma=ferma, diario=diario, on_page=on_page)
+        job.estrazioni = [
+            EstrazionePagina(p.pagina_id, p.testo, p.motore_usato, p.ms, p.nota, p.scartato)
+            for p in pagine
+        ]
+        # Estrazione alias for job.estrazioni compatibility (tests use job.estrazioni[].motore_usato etc)
+        # Need to also keep Estrazione type compatible: job.estrazioni uses same field names
+        job.stato = "cancelled" if (ferma is not None and ferma()) else "done"
+        # diario chiudi già fatto in submit; se non c'era diario, submit already handled none
+        # Ma se submit ha già chiuso, una seconda chiudi sarebbe duplicata: submit già chiude se diario != None, quindi non richiamare
+        return job_id
+
+    def cancel(self, job_id: str) -> None:
+        job = self._jobs.get(job_id)
+        if job is None:
+            raise KeyError(job_id)
+        if job.stato in ("queued", "processing"):
+            job.stato = "cancelled"
+
+    def get_result(self, job_id: str) -> OcrJob:
+        try:
+            return self._jobs[job_id]
+        except KeyError:
+            raise KeyError(job_id) from None
+
+
 def elabora_pagine(
     immagini: list[bytes],
     infer: Callable[[int, bytes], tuple[str, str]],
@@ -209,67 +444,16 @@ def elabora_pagine(
     soglia_righe_loop: int = 5,
     ignora_eco: bool = False,
 ) -> list[EstrazionePagina]:
-    """Per ogni Pagina: infer (2 tentativi su errore/vuoto, fail-fast su anomalia) → fallback Tesseract."""
-    out: list[EstrazionePagina] = []
-    totale = len(immagini)
-    for i, img in enumerate(immagini, start=1):
-        if ferma is not None and ferma():
-            break
-        t0 = time.monotonic()
-        if sorgente == "nessuno":
-            testo = fallback(i, img)
-            nota = "sorgente=nessuno"
-            if not testo.strip():
-                nota += "; fallback vuoto"
-            estrazione = EstrazionePagina(i, testo, "cpu-tesseract", _ms(t0), nota)
-            out.append(estrazione)
-            if on_page:
-                on_page(estrazione, i, totale)
-            continue
-        ultimo_errore: str | None = None
-        respinto: str | None = None
-        riuscito: EstrazionePagina | None = None
-        for _ in range(2):
-            try:
-                testo, motore = infer(i, img)
-                if not testo.strip():
-                    ultimo_errore = "output vuoto/anomalo"
-                    continue
-                motivo = _motivo_anomalia(
-                    testo,
-                    lingue_attese=lingue_attese,
-                    soglia_righe_loop=soglia_righe_loop,
-                    ignora_eco=ignora_eco,
-                )
-                if motivo is not None:
-                    # Difetto deterministico dello stesso input: riprovare
-                    # rigenererebbe la stessa degenerazione (P4: ~65s sprecati).
-                    ultimo_errore = motivo + "; fail-fast (senza retry)"
-                    respinto = testo[:MAX_SCARTATO]
-                    break
-                riuscito = EstrazionePagina(i, testo, motore, _ms(t0))
-                break
-            except InferenzaError as e:
-                ultimo_errore = str(e)
-                if _è_timeout(e):
-                    break
-                continue
-        if riuscito is None:
-            testo = fallback(i, img)
-            nota_fallback: str | None = ultimo_errore
-            corpo = testo.strip()
-            if not corpo:
-                nota_fallback = ((ultimo_errore + "; ") if ultimo_errore else "") + "fallback vuoto"
-            elif len(corpo) < 20:
-                # Ultima spiaggia quasi muta: l'utente deve saperlo dalla nota.
-                nota_fallback = ((ultimo_errore + "; ") if ultimo_errore else "") + (
-                    f"fallback debole ({len(corpo)} char)"
-                )
-            riuscito = EstrazionePagina(i, testo, "cpu-tesseract", _ms(t0), nota_fallback, respinto)
-        out.append(riuscito)
-        if on_page:
-            on_page(riuscito, i, totale)
-    return out
+    """Compat: delega a OcrPipeline.submit (mantiene firma originale)."""
+    p = OcrPipeline(
+        infer=infer,
+        fallback=fallback,
+        sorgente=sorgente,
+        lingue_attese=lingue_attese,
+        soglia_righe_loop=soglia_righe_loop,
+        ignora_eco=ignora_eco,
+    )
+    return p.submit(immagini, ferma=ferma, on_page=on_page)
 
 
 def _ms(t0: float) -> int:
