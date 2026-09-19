@@ -1,208 +1,209 @@
-# Documento dei Requisiti di Progetto — LocalLens
-## App OCR desktop multipiattaforma con inferenza locale GPU-accelerata
+# Project Requirements — LocalLens
+## Cross-platform desktop OCR app with GPU-accelerated local inference
 
-**Nome progetto:** LocalLens
-**Versione:** 2.1
-**Data:** 18 settembre 2026 (rev: cloud esterno opzionale, token solo sessione, interfaccia IT/EN)
-**Piattaforme target:** Linux e Windows (prioritarie v1); macOS non nel perimetro v1
-
----
-
-## 1. Obiettivo del progetto
-
-Realizzare un'applicazione desktop **multipiattaforma**, con **Linux e Windows come piattaforme prioritarie per la v1** (macOS rimandato a una versione successiva), che esegua OCR (estrazione di testo da immagini/documenti) prioritariamente in locale, sfruttando l'accelerazione GPU quando disponibile — **indipendentemente dal vendor** (NVIDIA, AMD, Intel, Apple Silicon) — con fallback automatico su CPU quando non lo è. Dalla v2.1 è ammesso come opzione esplicita un server esterno o cloud (URL + modello + prompt a mano, token solo in sessione mai salvato), con avviso privacy su URL non locali.
+**Project name:** LocalLens
+**Version:** 2.1
+**Date:** 2026-09-18 (rev: optional external/cloud server, session-only token, IT/EN interface)
+**Target platforms:** Linux and Windows (v1 priority); macOS out of scope for v1
 
 ---
 
-## 2. Hardware/ambienti di riferimento
+## 1. Project goal
 
-### 2.1 Macchina di riferimento Linux (sviluppo)
+Build a **cross-platform** desktop application, with **Linux and Windows as v1 priorities** (macOS deferred), that performs OCR (text extraction from images/documents) primarily locally, leveraging GPU acceleration when available — **regardless of vendor** (NVIDIA, AMD, Intel, Apple Silicon) — with automatic CPU fallback when not available. Since v2.1 an explicit external/cloud server is allowed (URL + model + prompt manually entered, token session-only never saved), with a privacy warning on non-local URLs.
 
-Usata come **riferimento empirico** per dimensionare i vincoli VRAM e validare il caso limite di GPU datata/a bassa memoria — non è l'unico target del progetto.
+---
 
-| Componente | Specifica |
+## 2. Reference hardware / environments
+
+### 2.1 Linux reference machine (development)
+
+Used as an **empirical reference** to size VRAM constraints and validate the low-memory / dated-GPU edge case — not the only target.
+
+| Component | Spec |
 |---|---|
 | CPU | Intel Core i7-6700HQ |
 | RAM | 16 GiB |
 | Storage | SSD 1 TB |
-| GPU dedicata | NVIDIA GeForce GTX 960M, 4 GB VRAM (architettura Maxwell, compute capability 5.2) |
-| GPU integrata | Intel HD Graphics 530 (configurazione Optimus) |
-| Driver NVIDIA | 580.178.04 (CUDA 13.0) |
+| Dedicated GPU | NVIDIA GeForce GTX 960M, 4 GB VRAM (Maxwell, compute capability 5.2) |
+| Integrated GPU | Intel HD Graphics 530 (Optimus) |
+| NVIDIA driver | 580.178.04 (CUDA 13.0) |
 | OS | Ubuntu 26.04.1 LTS |
-| Stack LLM già presente | `llama-server` con modello Qwen3.5-4B-GGUF (Q4_K_M), validato e funzionante su questa GPU |
+| LLM stack present | `llama-server` with Qwen3.5-4B-GGUF (Q4_K_M), validated on this GPU |
 
-Nota: con Qwen2.5-Coder-7B-Instruct (Q4_K_M) a `--n-gpu-layers 24` si è già osservato **out-of-memory sulla GPU**. Questo è il riferimento empirico per la fascia "VRAM bassa" (vedi punto 9).
+Note: with Qwen2.5-Coder-7B-Instruct (Q4_K_M) at `--n-gpu-layers 24` an **out-of-memory** was already observed. This is the empirical reference for the "low VRAM" tier (see §9).
 
-### 2.2 Macchina di riferimento Windows (test)
+### 2.2 Windows reference machine (test)
 
-| Componente | Specifica |
+| Component | Spec |
 |---|---|
-| Dispositivo | Acer Nitro ANV15-51 |
+| Device | Acer Nitro ANV15-51 |
 | CPU | 13th Gen Intel Core i5-13420H, 2.10 GHz |
-| RAM | 16 GB (15,7 GB utilizzabile) |
-| GPU dedicata | NVIDIA GeForce RTX 4050 Laptop GPU, 6 GB VRAM (architettura Ada Lovelace, compute capability 8.9) |
-| GPU integrata | Intel UHD Graphics (128 MB) |
-| Storage | 477 GB (282 GB utilizzati) |
+| RAM | 16 GB (15.7 GB usable) |
+| Dedicated GPU | NVIDIA GeForce RTX 4050 Laptop GPU, 6 GB VRAM (Ada Lovelace, cc 8.9) |
+| Integrated GPU | Intel UHD Graphics (128 MB) |
+| Storage | 477 GB (282 GB used) |
 | OS | Windows |
 
-Nota: con 6 GB di VRAM e un'architettura molto più recente della GTX 960M, questa macchina ricade al limite superiore della fascia "VRAM bassa" definita in sezione 9 (~2-6 GB). Nessun problema di compatibilità CUDA atteso: Ada Lovelace è pienamente supportata da tutte le build correnti.
+Note: with 6 GB VRAM and a much newer architecture than the GTX 960M, this machine sits at the upper bound of the "low VRAM" tier (§9, ~2–6 GB). No CUDA compatibility issue expected: Ada Lovelace is fully supported by current builds.
 
 ---
 
-## 3. Ambito (Scope)
+## 3. Scope
 
-### In ambito (v1)
-- Estrazione testo da immagini e PDF, con accelerazione GPU quando disponibile
-- Interfaccia desktop nativa per **Linux e Windows** (piattaforme prioritarie v1)
-- Rilevamento automatico del backend GPU disponibile (CUDA/HIP/Metal/Vulkan) con fallback CPU (Tesseract) quando nessun backend GPU è utilizzabile
-- Preset di modello OCR selezionabili in base alla VRAM rilevata a runtime
-- Configurazione della sorgente del modello OCR: GPU locale (server all'URL configurato, voce mostrata solo se binari e pesi rilevati, altrimenti ripiego su esterno), server esterno o cloud con URL + modello + prompt inseriti manualmente (dialetto Ollama `/api/chat` riconosciuto da URL, token API solo in sessione mai salvato), oppure nessun modello locale (solo fallback Tesseract)
-- Salvataggio/copia del testo estratto
-- Interfaccia in italiano o inglese, commutabile a caldo dalle Impostazioni
+### In scope (v1)
+- Text extraction from images and PDFs, with GPU acceleration when available
+- Native desktop UI for **Linux and Windows** (v1 priorities)
+- Automatic detection of the available GPU backend (CUDA/HIP/Metal/Vulkan) with CPU fallback (Tesseract) when no GPU backend is usable
+- Model presets selectable by VRAM detected at runtime
+- Model source configuration: Local GPU (server at configured URL, entry shown only if binaries and weights detected, otherwise fallback to external), external/cloud server with manual URL + model + prompt (Ollama `/api/chat` dialect auto-detected from URL, API token session-only never saved), or no local model (Tesseract-only)
+- Save/copy extracted text
+- Interface in Italian or English, hot-switchable from Settings
 
-### Fuori ambito (v1)
-- Training o fine-tuning di modelli
-- Acceleratori non coperti da CUDA/HIP/Metal/Vulkan (NPU dedicate, TPU, ecc.) — valutabile in v2
-- Versione mobile o web pubblica
-- Editing avanzato del PDF di output (OCR searchable layer) — valutabile in v2
-- Distribuzione tramite store applicativi (Microsoft Store, Mac App Store) — pacchetti installabili manualmente sufficienti per v1
-- Supporto macOS (backend Metal) — rimandato a v2, non prioritario per v1
+### Out of scope (v1)
+- Training or fine-tuning models
+- Accelerators not covered by CUDA/HIP/Metal/Vulkan (dedicated NPUs, TPUs, etc.) — possible in v2
+- Mobile or public web version
+- Advanced PDF output editing (searchable OCR layer) — possible in v2
+- Distribution via app stores (Microsoft Store, Mac App Store) — manually installable packages are enough for v1
+- macOS support (Metal backend) — deferred to v2, not a v1 priority
 
 ---
 
-## 4. Requisiti funzionali (RF)
+## 4. Functional requirements (RF)
 
-| ID | Requisito |
+| ID | Requirement |
 |---|---|
-| RF1 | L'utente deve poter fornire un'immagine o un PDF tramite: file da disco, drag&drop, incolla da clipboard, screenshot integrato |
-| RF2 | Il sistema deve poter applicare un preprocessing opzionale (deskew, crop, aumento contrasto) prima dell'inferenza — v1: resize anti-OOM + contrasto (deskew/crop in v1.1, vedi ADR-0006) |
-| RF3 | Il sistema deve rilevare automaticamente il backend GPU disponibile sulla piattaforma corrente (CUDA su NVIDIA, HIP/ROCm su AMD, Metal su Apple Silicon, Vulkan come fallback cross-vendor) e usarlo per l'inferenza tramite `llama.cpp`/`mtmd` |
-| RF4 | Se nessun backend GPU è disponibile/supportato o l'inferenza GPU fallisce, il sistema deve ricadere su un motore OCR CPU-only (Tesseract) senza bloccare l'utente |
-| RF5 | Il testo estratto deve essere copiabile negli appunti e salvabile su file (.txt/.md minimo) |
-| RF6 | Il sistema deve selezionare (o proporre) un preset di modello OCR GGUF adeguato alla VRAM rilevata, tra più fasce predefinite (vedi punto 9), e permettere di cambiarlo manualmente |
-| RF7 | L'interfaccia deve indicare chiaramente quale motore/backend (CUDA, HIP, Metal, Vulkan o CPU) ha elaborato ciascun documento |
-| RF8 | Il sistema deve gestire in modo esplicito i documenti multi-pagina (elaborazione sequenziale pagina per pagina) |
-| RF9 | L'app deve rimanere pienamente utilizzabile (via fallback CPU) anche su macchine prive di GPU dedicata o con GPU non coperta da alcun backend supportato |
-| RF10 | L'utente deve poter scegliere la sorgente del modello OCR tra tre modalità: (a) backend bundlato gestito automaticamente dall'app (RF3/RF6), (b) URL di un server `llama.cpp` esterno già in esecuzione, inserito manualmente, (c) nessun modello locale — solo fallback Tesseract, come scelta esplicita e non solo come degradazione automatica |
+| RF1 | The user must be able to provide an image or PDF via: file from disk, drag&drop, clipboard paste, integrated screenshot |
+| RF2 | The system must be able to apply optional preprocessing (deskew, crop, contrast boost) before inference — v1: anti-OOM resize + contrast (deskew/crop in v1.1, see ADR-0006) |
+| RF3 | The system must automatically detect the GPU backend available on the current platform (CUDA on NVIDIA, HIP/ROCm on AMD, Metal on Apple Silicon, Vulkan as cross-vendor fallback) and use it via `llama.cpp`/`mtmd` |
+| RF4 | If no GPU backend is available/supported or GPU inference fails, the system must fall back to a CPU-only OCR engine (Tesseract) without blocking the user |
+| RF5 | Extracted text must be copyable to clipboard and savable to file (.txt/.md minimum) |
+| RF6 | The system must select (or propose) a GGUF model preset suitable for the detected VRAM, among predefined tiers (see §9), and allow manual override |
+| RF7 | The UI must clearly indicate which engine/backend (CUDA, HIP, Metal, Vulkan or CPU) processed each document |
+| RF8 | The system must explicitly handle multi-page documents (sequential page-by-page processing) |
+| RF9 | The app must remain fully usable (via CPU fallback) even on machines without a dedicated GPU or with a GPU not covered by any supported backend |
+| RF10 | The user must be able to choose the OCR model source among three modes: (a) bundled backend managed by the app (RF3/RF6), (b) URL of an already-running external `llama.cpp` server entered manually, (c) no local model — Tesseract-only, as an explicit choice not just automatic degradation |
 
 ---
 
-## 5. Requisiti non funzionali (RNF)
+## 5. Non-functional requirements (RNF)
 
-| ID | Requisito |
+| ID | Requirement |
 |---|---|
-| RNF1 | **Privacy**: nessun dato (immagine o testo estratto) lascia la macchina locale nella configurazione di default (backend bundlato). Se l'utente configura manualmente un URL di server esterno (RF10b), l'app deve mostrare un avviso esplicito quando l'URL non punta a `localhost`/rete privata, dato che a quel punto la garanzia dipende da dove l'utente ha scelto di puntare |
-| RNF2 | **Portabilità**: l'app deve funzionare su Linux (distribuzioni principali) e Windows 10/11, con almeno un percorso funzionante — GPU o CPU — su ciascuna. Supporto macOS (Apple Silicon) rimandato a v2 |
-| RNF3 | **Modularità**: il motore di inferenza (backend) deve essere disaccoppiato dalla GUI, comunicando via API HTTP locale, per poter sostituire/aggiornare modello e backend senza toccare l'interfaccia |
-| RNF4 | **Degradazione controllata**: in caso di VRAM insufficiente o backend GPU non disponibile, l'app deve fallire in modo gestito (messaggio chiaro + fallback CPU), mai crash silenzioso |
-| RNF5 | **Tempo di risposta**: nessun requisito hard uniforme tra piattaforme/hardware così eterogenei; va misurato per-preset e comunicato all'utente, non promesso a priori |
+| RNF1 | **Privacy**: no data (image or extracted text) leaves the local machine in the default configuration (bundled backend). If the user manually configures an external server URL (RF10b), the app must show an explicit warning when the URL does not point to `localhost`/private network, since the guarantee then depends on where the user chose to point |
+| RNF2 | **Portability**: the app must work on Linux (major distros) and Windows 10/11, with at least one working path — GPU or CPU — on each. macOS (Apple Silicon) deferred to v2 |
+| RNF3 | **Modularity**: the inference engine (backend) must be decoupled from the GUI, communicating via a local HTTP API, so model and backend can be replaced/updated without touching the UI |
+| RNF4 | **Graceful degradation**: on insufficient VRAM or unavailable GPU backend, the app must fail in a managed way (clear message + CPU fallback), never a silent crash |
+| RNF5 | **Response time**: no hard uniform requirement across such heterogeneous platforms/hardware; measure per-preset and communicate to the user, not promised upfront |
 
 ---
 
-## 6. Vincoli hardware
+## 6. Hardware constraints
 
-- L'app deve funzionare su un ventaglio molto eterogeneo di configurazioni: da GPU datate a bassa VRAM (macchina di riferimento, 4 GB) a GPU moderne con VRAM abbondante, fino all'assenza totale di GPU dedicata.
-- La VRAM disponibile **non può essere assunta a build-time**: va rilevata a runtime (query del backend GPU attivo) per scegliere il preset di modello (RF6).
-- Baseline empirica nota (macchina di riferimento, 4 GB): OOM già osservato con un modello 7B Q4_K_M a 24 layer offloaded — fissa il limite superiore indicativo per la fascia "VRAM bassa".
-- Su Linux con GPU ibrida (Optimus/PRIME), l'app deve gestire esplicitamente la selezione della GPU dedicata invece di affidarsi al comportamento di default del sistema (evitando di alterare il profilo prime-select globale, che in passato ha causato un loop di login sulla macchina di riferimento).
-- Su macchine senza GPU supportata da nessun backend, l'app deve operare interamente su CPU (Tesseract, ed eventualmente `llama.cpp` CPU-only per modelli molto piccoli) senza richiedere intervento manuale.
+- The app must work across a very heterogeneous range of configs: from dated low-VRAM GPUs (reference machine, 4 GB) to modern GPUs with abundant VRAM, down to no dedicated GPU at all.
+- Available VRAM **cannot be assumed at build time**: it must be detected at runtime (query of the active GPU backend) to choose the model preset (RF6).
+- Known empirical baseline (reference machine, 4 GB): OOM already observed with a 7B Q4_K_M model at 24 offloaded layers — sets the indicative upper bound for the "low VRAM" tier.
+- On Linux with hybrid GPU (Optimus/PRIME), the app must explicitly handle selection of the dedicated GPU instead of relying on the system default (avoiding altering the global prime-select profile, which previously caused a login loop on the reference machine).
+- On machines without a GPU supported by any backend, the app must run entirely on CPU (Tesseract, and optionally CPU-only `llama.cpp` for very small models) without manual intervention.
 
 ---
 
-## 7. Vincoli software / compatibilità
+## 7. Software / compatibility constraints
 
-- **Motivazione generale (non solo per la GPU di riferimento)**: gli stack Python/PyTorch legano la compatibilità GPU alla combinazione precisa di torch+CUDA/ROCm installata, e le build ufficiali riducono nel tempo il ventaglio di architetture supportate (è già successo con Maxwell/Pascal nelle build CUDA 12.8+/13.0). Per un'app pensata per girare su hardware eterogeneo e restare compatibile nel tempo, questo è un rischio di manutenzione **non accettabile come dipendenza critica** per il motore OCR primario.
-- Il motore di inferenza primario **deve** essere `llama.cpp`/`llama-server` (via `mtmd` per i modelli OCR), che espone più backend nativi intercambiabili:
+- **General rationale (not only for the reference GPU)**: Python/PyTorch stacks tie GPU compatibility to the exact torch+CUDA/ROCm combination installed, and official builds narrow the supported architectures over time (already happened with Maxwell/Pascal on CUDA 12.8+/13.0). For an app meant to run on heterogeneous hardware and stay compatible over time, this is an **unacceptable maintenance risk as a critical dependency** for the primary OCR engine.
+- The primary inference engine **must** be `llama.cpp`/`llama-server` (via `mtmd` for OCR models), exposing multiple interchangeable native backends:
 
-  | Backend | Vendor GPU | Piattaforme |
+  | Backend | GPU vendor | Platforms |
   |---|---|---|
   | CUDA | NVIDIA | Windows, Linux |
-  | HIP / ROCm | AMD | Linux (principalmente) |
+  | HIP / ROCm | AMD | Linux (mainly) |
   | Metal | Apple Silicon | macOS |
   | Vulkan | NVIDIA / AMD / Intel (cross-vendor) | Windows, Linux |
   | CPU | — | Windows, macOS, Linux |
 
-- **Vulkan va trattato come fallback GPU universale** quando il backend vendor-specifico non è disponibile o non è stato compilato per quella combinazione piattaforma/GPU.
-- Per le piattaforme prioritarie v1 (Linux, Windows), i backend rilevanti sono: CUDA, HIP/ROCm (solo Linux), Vulkan, CPU. Metal (macOS) non richiede build in v1.
-- **Strategia di distribuzione confermata**: pacchetto unico per piattaforma (Linux, Windows) che include tutti i binari `llama-server` rilevanti per quell'OS (CUDA, HIP/ROCm dove pertinente, Vulkan, CPU), con **selezione automatica a runtime** del binario corretto in base al backend rilevato — non installer separati per backend. Questa scelta riusa la stessa logica di rilevamento già richiesta da RF3, evita l'errore di selezione manuale del pacchetto sbagliato, e permette all'app di adattarsi da sola se l'hardware della macchina cambia, senza reinstallazione.
-- Modelli OCR: distribuiti in GGUF con `mmproj` compatibile (es. dalla collezione `ggml-org` su Hugging Face: DeepSeek-OCR, PaddleOCR-VL, GLM-OCR, Dots.OCR, HunyuanOCR).
-- **Template di prompt specifico per modello**: ogni modello OCR GGUF ha una struttura di prompt/chat-template propria (es. `--chat-template deepseek-ocr`). Il layer `core` deve trattarlo come configurazione per-modello, non come costante hardcoded.
-- Il backend deve esporre un'API compatibile OpenAI (`/v1/chat/completions`), coerente col pattern già in uso per il server Qwen, su una **porta dedicata** separata da altri server LLM eventualmente in esecuzione.
-- Tesseract (fallback CPU) non ha vincoli di compatibilità GPU: dipendenza a basso rischio, uguale su tutte le piattaforme.
-- **Libreria per estrazione/rendering PDF confermata: `pypdfium2`** (binding Python per PDFium, il motore di rendering PDF di Chrome). Preferita a `pdf2image`/Poppler perché quest'ultimo richiede un binario di sistema esterno — su Windows va scaricato manualmente e aggiunto al PATH, una delle cause più comuni di errore in fase di setup/runtime. `pypdfium2` è invece un pacchetto pip auto-contenuto (nessuna dipendenza esterna) con wheel precompilate per Linux e Windows. Preferita anche a `PyMuPDF` (tecnicamente equivalente e anch'esso auto-contenuto) per la licenza: PDFium è permissiva, mentre PyMuPDF è AGPL-3.0 o a pagamento — meno compatibile con un'eventuale distribuzione non-AGPL dell'app.
+- **Vulkan is the universal GPU fallback** when the vendor-specific backend is unavailable or not built for that platform/GPU combination.
+- For v1 priorities (Linux, Windows), the relevant backends are: CUDA, HIP/ROCm (Linux only), Vulkan, CPU. Metal (macOS) needs no build in v1.
+- **Distribution strategy (confirmed)**: single package per platform (Linux, Windows) bundling all relevant `llama-server` binaries for that OS (CUDA, HIP/ROCm where relevant, Vulkan, CPU), with **automatic runtime selection** of the correct binary based on detected backend — not separate installers per backend. This reuses the same detection logic already required by RF3, avoids picking the wrong package, and lets the app adapt if the machine's hardware changes without reinstalling.
+- OCR models: distributed as GGUF with compatible `mmproj` (e.g. from the `ggml-org` collection on Hugging Face: DeepSeek-OCR, PaddleOCR-VL, GLM-OCR, Dots.OCR, HunyuanOCR).
+- **Per-model prompt template**: each GGUF OCR model has its own prompt/chat-template structure (e.g. `--chat-template deepseek-ocr`). The `core` layer must treat it as per-model configuration, not a hardcoded constant.
+- The backend must expose an OpenAI-compatible API (`/v1/chat/completions`), consistent with the existing Qwen server pattern, on a **dedicated port** separate from other running LLM servers.
+- Tesseract (CPU fallback) has no GPU compatibility constraints: low-risk dependency, identical on all platforms.
+- **PDF extraction/rendering library (confirmed): `pypdfium2`** (Python binding for PDFium, Chrome's PDF engine). Preferred over `pdf2image`/Poppler because Poppler requires an external system binary — on Windows it must be downloaded manually and added to PATH, a common source of setup/runtime errors. `pypdfium2` is a self-contained pip package (no external dependency) with prebuilt wheels for Linux and Windows. Also preferred over `PyMuPDF` (technically equivalent and also self-contained) for licensing: PDFium is permissive, while PyMuPDF is AGPL-3.0 or paid — less compatible with a non-AGPL distribution.
 
 ---
 
-## 8. Vincoli architetturali
+## 8. Architecture constraints
 
-Architettura a livelli, con l'aggiunta del rilevamento hardware/backend:
+Layered architecture, with hardware/backend detection:
 
 ```
-/backend        → istanza llama-server, con binario/backend selezionato
-                  in base a piattaforma+GPU rilevata (CUDA/HIP/Metal/Vulkan/CPU)
-/core           → orchestrazione: rilevamento hardware, scelta preset modello,
-                  prompt/template per-modello, chiamata HTTP, parsing output
-/preprocessing  → OpenCV, solo CPU (deskew, crop, contrasto)
-/app            → GUI desktop (PyQt6/PySide6)
-/fallback       → integrazione Tesseract via pytesseract
+/backend        → llama-server instance, with binary/backend selected
+                   by platform+GPU detection (CUDA/HIP/Metal/Vulkan/CPU)
+/core           → orchestration: hardware detection, model preset choice,
+                   per-model prompt/template, HTTP call, output parsing
+/preprocessing  → OpenCV, CPU only (deskew, crop, contrast)
+/app            → desktop GUI (PyQt6/PySide6)
+/fallback       → Tesseract integration via pytesseract
 ```
 
-- La logica di rilevamento GPU/backend/VRAM deve vivere in `/core` (o in un modulo dedicato `/hwdetect`), **mai nella GUI**, per restare testabile e sostituibile.
-- `/core` deve astrarre la **sorgente del modello OCR** in tre modalità intercambiabili dietro la stessa interfaccia client HTTP (RF10): backend bundlato (avviato/gestito da `/backend`), URL esterno inserito dall'utente, o nessuna sorgente (solo `/fallback`). La differenza tra le tre è solo *dove* punta il client, non il protocollo: essendo tutte API compatibili OpenAI, `/core` non necessita di logica diversa per modalità.
-- `/core` non deve avere dipendenze dirette da un modello OCR specifico: i template di prompt sono dati esterni (config), non codice.
-- `/app` comunica solo con `/core`, mai direttamente con `/backend` né con un URL esterno, per mantenere sostituibile motore, backend e sorgente di inferenza.
+- GPU/backend/VRAM detection must live in `/core` (or a dedicated `/hwdetect` module), **never in the GUI**, to stay testable and replaceable.
+- `/core` must abstract the **OCR model source** into three interchangeable modes behind the same HTTP client interface (RF10): bundled backend (started/managed by `/backend`), external URL entered by the user, or no source (`/fallback` only). The difference is only *where* the client points, not the protocol: since all are OpenAI-compatible APIs, `/core` needs no per-mode branching.
+- `/core` must not have direct dependencies on a specific OCR model: prompt templates are external data (config), not code.
+- `/app` communicates only with `/core`, never directly with `/backend` nor an external URL, to keep engine, backend and inference source replaceable.
 
 ---
 
-## 9. Vincoli sulla scelta del modello OCR
+## 9. Constraints on OCR model selection
 
-Invece di un budget VRAM fisso, si definiscono almeno tre fasce:
+Instead of a fixed VRAM budget, at least three tiers are defined:
 
-| Fascia | VRAM indicativa | Modello |
+| Tier | Indicative VRAM | Model |
 |---|---|---|
-| CPU-only | GPU assente/non supportata | Nessun modello GPU: solo Tesseract |
-| VRAM bassa | ~2–6 GB (es. macchina di riferimento) | Modello OCR dedicato 1B–4B, Q4_K_M o più aggressivo |
-| VRAM media/alta | >6 GB | Modello OCR più grande o quantizzazione meno aggressiva, se disponibile |
+| CPU-only | GPU absent/unsupported | No GPU model: Tesseract only |
+| Low VRAM | ~2–6 GB (e.g. reference machine) | Dedicated OCR model 1B–4B, Q4_K_M or more aggressive |
+| Medium/high VRAM | >6 GB | Larger model or less aggressive quantization, if available |
 
-**Modello di test/default confermato per la fascia VRAM bassa:** `ggml-org/GLM-OCR-GGUF:Q8_0` — 0,9B parametri, pesi Q8_0 ~950 MB + `mmproj` ~484 MB (~1,4 GB totali). Rientra ampiamente nel budget dei 4 GB della macchina di riferimento anche contando la KV cache.
+**Default model for the low-VRAM tier (confirmed):** `ggml-org/GLM-OCR-GGUF:Q8_0` — 0.9B params, Q8_0 weights ~950 MB + `mmproj` ~484 MB (~1.4 GB total). Well within the 4 GB budget of the reference machine including KV cache.
 
-Un modello è idoneo per qualunque fascia GPU solo se rispetta **tutti** i seguenti punti:
-1. Disponibile in formato GGUF con `mmproj` per `llama.cpp`/`mtmd`
-2. È un modello OCR dedicato, non una VLM general-purpose di grandi dimensioni (specialmente per la fascia bassa)
-3. Ha una configurazione di prompt/chat-template documentata (non dedotta per analogia)
-4. Rientra nel budget VRAM della fascia target, mmproj incluso
+A model is eligible for any GPU tier only if it meets **all** of:
+
+1. Available as GGUF with `mmproj` for `llama.cpp`/`mtmd`
+2. It is a dedicated OCR model, not a large general-purpose VLM (especially for the low tier)
+3. It has a documented prompt/chat-template configuration (not deduced by analogy)
+4. It fits the target tier's VRAM budget, mmproj included
 
 ---
 
-## 10. Rischi e mitigazioni
+## 10. Risks and mitigations
 
-| Rischio | Mitigazione |
+| Risk | Mitigation |
 |---|---|
-| OOM su immagini/pagine ad alta risoluzione | Resize/tiling dell'immagine in `/preprocessing` prima dell'invio, con limite massimo configurabile |
-| GPU non utilizzata per errata configurazione Optimus (Linux) | Verifica esplicita all'avvio che `llama-server` stia usando la GPU dedicata attesa, non quella integrata |
-| Superficie di test comunque ampia (2 OS prioritari × fino a 4 backend GPU: CUDA, HIP, Vulkan, CPU) | Build/matrice automatizzata dove possibile; test manuale approfondito solo sulla macchina di riferimento (Linux + CUDA) in v1, resto trattato come "best effort" (vedi punti aperti) |
-| Driver Vulkan/HIP meno maturi di CUDA su alcune configurazioni | Fallback esplicito a CPU se l'inferenza GPU fallisce silenziosamente o produce output anomalo, mai un errore non gestito |
-| Latenza alta su fallback CPU con documenti complessi | RF7 (indicare motore usato) + gestione aspettative, nessuna promessa di tempo di risposta uniforme |
-| Aggiornamenti driver/CUDA/ROCm che rompono compatibilità | Pinning esplicito della versione di `llama.cpp` validata per ciascun backend, aggiornamento solo dopo test |
+| OOM on high-resolution images/pages | Resize/tiling in `/preprocessing` before sending, with configurable max limit |
+| GPU not used due to Optimus misconfiguration (Linux) | Explicit check at startup that `llama-server` is using the expected dedicated GPU, not the integrated one |
+| Still broad test surface (2 priority OS × up to 4 GPU backends: CUDA, HIP, Vulkan, CPU) | Automated build/matrix where possible; in-depth manual testing only on reference machine (Linux + CUDA) in v1, rest as "best effort" (see open issues) |
+| Vulkan/HIP drivers less mature than CUDA on some configs | Explicit CPU fallback if GPU inference fails silently or produces anomalous output, never an unhandled error |
+| High latency on CPU fallback with complex documents | RF7 (indicate engine used) + expectation management, no uniform response-time promise |
+| Driver/CUDA/ROCm updates breaking compatibility | Explicit pinning of the validated `llama.cpp` version per backend, update only after testing |
 
 ---
 
-## 11. Criteri di accettazione (v1)
+## 11. Acceptance criteria (v1)
 
-Stato verificato il 2026-09-16 (dettagli in `docs/architecture.md` §3):
+Verified 2026-09-16 (details in `docs/architecture.md` §3):
 
-- [x] L'app rileva automaticamente il backend GPU disponibile (o la sua assenza) e seleziona un preset di modello coerente con la VRAM rilevata
-- [x] L'app estrae testo leggibile da almeno un'immagine di test tramite `ggml-org/GLM-OCR-GGUF:Q8_0` via `llama-server`, su almeno una combinazione piattaforma/backend verificata (macchina di riferimento: Linux + CUDA)
-- [ ] La stessa estrazione funziona anche su Windows (macchina di riferimento: Acer Nitro ANV15-51, RTX 4050 Laptop GPU) con backend CUDA — best effort, non verificato in questa sessione
-- [x] Su GPU assente o non supportata, l'estrazione avviene automaticamente via Tesseract senza intervento manuale — pipeline verificata via test; live Tesseract richiede il binario di sistema (`TESSERACT_LIVE=1`)
-- [x] Nessuna chiamata di rete esterna viene effettuata durante l'elaborazione
-- [x] Il sistema non va in crash su OOM o backend non disponibile: mostra un errore gestito e propone il fallback CPU
-- [x] Il testo estratto è copiabile e salvabile su file
-- [x] L'utente può scegliere tra backend bundlato, URL di server `llama.cpp` esterno, o nessun modello locale (solo Tesseract), e l'app avvisa esplicitamente se l'URL esterno non punta a `localhost`/rete privata
-- [x] Il PDF in input viene gestito (rendering pagina-per-pagina) secondo l'approccio scelto (vedi punti aperti)
+- [x] The app automatically detects the available GPU backend (or its absence) and selects a model preset consistent with detected VRAM
+- [x] The app extracts readable text from at least one test image via `ggml-org/GLM-OCR-GGUF:Q8_0` through `llama-server`, on at least one verified platform/backend (reference: Linux + CUDA)
+- [ ] The same extraction works on Windows (reference: Acer Nitro ANV15-51, RTX 4050 Laptop) with CUDA backend — best effort, not verified in this session
+- [x] With absent or unsupported GPU, extraction happens automatically via Tesseract with no manual step — pipeline verified via tests; live Tesseract requires system binary (`TESSERACT_LIVE=1`)
+- [x] No external network call is made during processing
+- [x] The system does not crash on OOM or unavailable backend: shows a managed error and offers CPU fallback
+- [x] Extracted text is copyable and savable to file
+- [x] The user can choose among bundled backend, external `llama.cpp` server URL, or no local model (Tesseract-only), and the app warns explicitly if the external URL does not point to `localhost`/private network
+- [x] Input PDF is handled (page-by-page rendering) per the chosen approach (see open issues)
 
 ---
 
-## 12. Punti aperti da chiarire prima dello sviluppo
+## 12. Open issues before development
 
-- Modello di default per la fascia VRAM media/alta (quella bassa è coperta da `GLM-OCR-GGUF:Q8_0`, vedi punto 9)
+- Default model for the medium/high VRAM tier (low tier covered by `GLM-OCR-GGUF:Q8_0`, see §9)

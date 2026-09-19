@@ -1,6 +1,6 @@
-# RF2 parziale in v1: resize + contrasto, niente deskew/crop né OpenCV
+# ADR 0006 — RF2 partial in v1: resize + contrast, no deskew/crop or OpenCV
 
-Deskew e crop richiederebbero OpenCV (~90 MB in più nel bundle) per un beneficio
-marginale sull'immagine gold. v1 implementa `prepara()` con Pillow (già dipendenza):
-resize Lanczos anti-OOM + contrasto opzionale. I flag `deskew`/`crop` sono stati
-rimossi dai settings invece di restare come no-op silenziosi.
+Deskew and crop would require OpenCV (~90 MB extra in the bundle) for marginal
+gain on the gold image. v1 implements `prepare()` with Pillow (already a dependency):
+Lanczos resize anti-OOM + optional contrast. `deskew`/`crop` flags were removed
+from settings instead of remaining as silent no-ops.

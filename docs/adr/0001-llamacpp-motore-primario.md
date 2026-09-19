@@ -1,6 +1,6 @@
-# llama.cpp come motore primario, non stack Python/PyTorch
+# ADR 0001 — llama.cpp as primary engine, not Python/PyTorch
 
-Le build torch+CUDA/ROCm restringono nel tempo le architetture supportate (già successo
-con Maxwell/Pascal) e legano la compatibilità alla combinazione esatta installata.
-llama-server espone backend nativi intercambiabili (CUDA/HIP/Vulkan/CPU) dietro la stessa
-API OpenAI-compatibile, con binari pinnati per backend e selezione a runtime.
+`torch+CUDA/ROCm` builds narrow supported architectures over time (already happened
+with Maxwell/Pascal) and tie compatibility to the exact installed combination.
+`llama-server` exposes interchangeable native backends (CUDA/HIP/Vulkan/CPU) behind
+the same OpenAI-compatible API, with per-backend pinned binaries and runtime selection.

@@ -1,7 +1,7 @@
-# Test live dietro flag env + bundle via _MEIPASS
+# ADR 0007 — Live tests behind env flags + bundle via _MEIPASS
 
-I test che toccano hardware/rete (`test_integrazione_ocr`, live Tesseract) girano
-solo con `LOCALLENS_LIVE=1` / `TESSERACT_LIVE=1`: la CI resta pura e veloce,
-la validazione reale è esplicita e documentata. Il bundle PyInstaller risolve
-`presets/` e `bins/` via `sys._MEIPASS` (`config/percorsi.py`), CWD in sviluppo:
-un solo codice per entrambi, verificato con boot offscreen del binario pacchettizzato.
+Tests touching hardware/network (`test_integrazione_ocr`, live Tesseract) run only
+with `LOCALLENS_LIVE=1` / `TESSERACT_LIVE=1`: CI stays pure and fast, real
+validation is explicit and documented. The PyInstaller bundle resolves `presets/`
+and `bins/` via `sys._MEIPASS` (`config/paths.py`), CWD in development: one
+codepath for both, verified with an offscreen boot of the packaged binary.

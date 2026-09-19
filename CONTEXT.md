@@ -1,39 +1,39 @@
 # LocalLens
 
-Estrazione OCR desktop con inferenza su GPU locale quando disponibile, server esterno o cloud opzionale, e fallback CPU.
+Desktop OCR extraction with local GPU inference when available, optional external/cloud server, and CPU fallback.
 
 ## Language
 
-### Inferenza
+### Inference
 
 **BackendGpu**:
-Flavor del binario llama-server selezionato a runtime in base a piattaforma e GPU.
-_Avoid_: backend generico
+Flavor of the llama-server binary selected at runtime based on platform and GPU.
+_Avoid_: generic backend
 
-**SorgenteModello**:
-Dove punta il client di inferenza: bundlato, esterno oppure nessuno (solo fallback CPU).
-_Avoid_: backend, motore
+**SorgenteModello (ModelSource)**:
+Where the inference client points: `bundlato` (bundled/local GPU server), `esterno` (external server/cloud), or `nessuno` (no local model — CPU fallback only).
+_Avoid_: backend, engine
 
-**PresetModello**:
-Configurazione per-modello: repo GGUF, mmproj, chat-template, VRAM minima e limiti di resize.
-_Avoid_: modello generico
+**PresetModello (ModelPreset)**:
+Per-model configuration: GGUF repo, mmproj, chat template, minimum VRAM and resize limits.
+_Avoid_: generic model
 
-### Documento
+### Document
 
-**Documento**:
-File in input fornito dall'utente: un'immagine singola o un PDF.
+**Documento (Document)**:
+User-provided input file: a single image or a PDF.
 _Avoid_: file, input
 
-**Pagina**:
-Unità atomica di inferenza: un'immagine oppure una singola pagina renderizzata di un PDF.
-_Avoid_: immagine, foglio
+**Pagina (Page)**:
+Atomic unit of inference: one image or a single rendered PDF page.
+_Avoid_: image, sheet
 
-**Estrazione**:
-Testo risultato dell'inferenza su una singola Pagina, con indicazione del motore usato.
-_Avoid_: OCR, output, risultato
+**Estrazione (Extraction)**:
+Text result of inference on a single Pagina, with the engine used and timing; `nota` explains fallback.
+_Avoid_: OCR, output, result
 
-### Applicazione
+### Application
 
-**LinguaInterfaccia**:
-Lingua dei testi dell'interfaccia, italiano oppure inglese, commutabile a caldo dalle Impostazioni.
-_Avoid_: locale, lingue filtro
+**LinguaInterfaccia (InterfaceLanguage)**:
+Language of the UI strings, Italian or English, hot-switchable from Settings. Validated `it | en`.
+_Avoid_: locale, filter languages

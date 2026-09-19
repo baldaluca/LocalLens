@@ -1,5 +1,5 @@
-# PySide6 per la GUI desktop
+# ADR 0002 — PySide6 for the desktop GUI
 
-Funzionalmente equivalente a PyQt6 per v1, ma con licenza LGPL compatibile con
-distribuzione senza obbligo GPL (PyQt6 è GPL/commerciale). Coerente con la scelta
-di pypdfium2 per motivi di licenza.
+Functionally equivalent to PyQt6 for v1, but with an LGPL license compatible with
+distribution without a GPL obligation (PyQt6 is GPL/commercial). Consistent with
+the choice of pypdfium2 for licensing reasons.
