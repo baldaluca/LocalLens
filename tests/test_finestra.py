@@ -73,7 +73,7 @@ def test_lista_con_badge_motore_e_testo(qapp):
     w = MainWindow()
     w.mostra_estrazioni(_estrazioni())
     assert w.lista.count() == 2
-    assert "GPU locale •" in w.lista.item(0).text()
+    assert "Local GPU •" in w.lista.item(0).text()
     assert "cuda" in w.lista.item(0).toolTip()
     assert w.lista.item(1).text().endswith("CPU • 200 ms") or "CPU •" in w.lista.item(1).text()
     assert "cpu-tesseract" in w.lista.item(1).toolTip()
@@ -97,7 +97,7 @@ def test_lista_esterna_senza_modello_mostra_server_esterno(qapp):
     from locallens.core.orchestrator import Estrazione
 
     w.mostra_estrazioni([Estrazione(pagina_id=1, testo="ciao", motore_usato="esterno", ms=3000)])
-    assert "Server esterno" in w.lista.item(0).text()
+    assert "External server" in w.lista.item(0).text()
 
 
 def test_copia_negli_appunti(qapp):
@@ -147,7 +147,7 @@ def test_intestazione_mostra_modello_cloud(qapp):
 
 def test_stato_vuoto_e_bottoni_disabilitati(qapp):
     w = MainWindow()
-    assert "Apri un Documento" in w.testo.toPlainText()
+    assert "Open a Document" in w.testo.toPlainText()
     assert not w.btn_copia.isEnabled()
     assert not w.btn_salva.isEnabled()
     assert not w.btn_annulla.isEnabled()
@@ -385,9 +385,9 @@ def test_pill_mostra_gpu_locale(qapp):
 
     assert ETICHETTE_SORGENTE["bundlato"] == "GPU locale"
     w = MainWindow()
-    w.conf.update({"sorgente": "bundlato", "url_esterno": "http://127.0.0.1:10000"})
+    w.conf.update({"sorgente": "bundlato", "url_esterno": "http://127.0.0.1:10000", "lingua": "en"})
     w.aggiorna_intestazione()
-    assert "GPU locale" in w.pill.text()
+    assert "Local GPU" in w.pill.text()
     assert "10000" in w.pill.text()
 
 

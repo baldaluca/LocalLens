@@ -1,5 +1,6 @@
 # Esempio config utente — copiare in ~/.config/locallens/config.toml (Linux)
 # o %APPDATA%/LocalLens/config.toml (Win)
+lingua = "en"                 # it | en — default en
 sorgente = "bundlato"          # bundlato | esterno | nessuno
 url_esterno = "http://127.0.0.1:8011"
 preset_id = "glm-ocr-q8_0"     # override manuale, altrimenti auto da VRAM

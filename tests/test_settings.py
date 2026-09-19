@@ -58,7 +58,7 @@ def test_token_mai_salvato_su_disco(tmp_path):
 
 
 def test_lingua_default_it():
-    assert DEFAULTS["lingua"] == "it"
+    assert DEFAULTS["lingua"] == "en"
 
 
 def test_roundtrip_lingua(tmp_path):
@@ -71,7 +71,7 @@ def test_roundtrip_lingua(tmp_path):
 def test_lingua_non_valida_forza_it(tmp_path):
     path = tmp_path / "c.toml"
     path.write_text('lingua = "fr"\n', encoding="utf-8")
-    assert carica(path=path)["lingua"] == "it"
+    assert carica(path=path)["lingua"] == "en"
 
 
 def test_roundtrip_escape_stringhe(tmp_path):

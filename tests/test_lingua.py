@@ -19,7 +19,7 @@ def test_nessun_placeholder_perso():
 
 
 def test_fallback_lingua_ignota():
-    assert t("fr", "status_pronto") == STRINGS["it"]["status_pronto"]
+    assert t("fr", "status_pronto") == STRINGS["en"]["status_pronto"]
 
 
 def test_chiave_ignota_keyerror():

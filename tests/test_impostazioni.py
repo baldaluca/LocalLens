@@ -104,11 +104,11 @@ def test_bottone_aiuto_testo_visibile(qapp):
 
 def test_label_gpu_locale_e_flag(qapp):
     d = DialogoImpostazioni()
-    assert d.sorgente.itemText(0) == "GPU locale"
+    assert d.sorgente.itemText(0) == "Local GPU"
     assert d.valori()["sorgente"] == "bundlato"
     d2 = DialogoImpostazioni(gpu_locale_disponibile=False)
     voci = [d2.sorgente.itemText(i) for i in range(d2.sorgente.count())]
-    assert voci == ["esterno", "nessuno"]
+    assert voci == ["external", "none"]
     d2.set_sorgente("esterno")
     assert d2.valori()["sorgente"] == "esterno"
 
@@ -190,9 +190,9 @@ def test_selettore_lingua_roundtrip(qapp):
     from locallens.app.lingua import STRINGS
 
     d = DialogoImpostazioni()
-    assert d.valori()["lingua"] == "it"
+    assert d.valori()["lingua"] == "en"
     voci = [d.selettore_lingua.itemText(i) for i in range(d.selettore_lingua.count())]
-    assert voci == [STRINGS["it"]["lingua_nome_it"], STRINGS["it"]["lingua_nome_en"]]
+    assert voci == [STRINGS["en"]["lingua_nome_it"], STRINGS["en"]["lingua_nome_en"]]
     d.set_lingua("en")
     assert d.valori()["lingua"] == "en"
     d.set_lingua("it")

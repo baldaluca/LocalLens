@@ -157,6 +157,6 @@ STRINGS: dict[str, dict[str, str]] = {
 
 
 def t(lingua: str, chiave: str, **fmt) -> str:
-    """Rende STRINGS[lingua][chiave].format(**fmt); lingua ignota → "it"."""
-    tabella = STRINGS.get(lingua) or STRINGS["it"]
+    """Rende STRINGS[lingua][chiave].format(**fmt); lingua ignota → "en"."""
+    tabella = STRINGS.get(lingua) or STRINGS["en"]
     return tabella[chiave].format(**fmt)

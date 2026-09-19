@@ -29,11 +29,11 @@ _ID_LINGUE = ("it", "en")
 class DialogoImpostazioni(QDialog):
     def __init__(
         self, parent=None, tema: str = "chiaro", gpu_locale_disponibile: bool = True,
-        lingua: str = "it",
+        lingua: str = "en",
     ) -> None:
         super().__init__(parent)
         if lingua not in LINGUE:
-            lingua = "it"
+            lingua = "en"
         self._lingua = lingua
         self.setWindowTitle(t(lingua, "dlg_impostazioni_titolo"))
         self.setStyleSheet(qss(tema))  # come la finestra principale (stessi token)

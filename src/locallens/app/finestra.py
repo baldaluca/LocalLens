@@ -198,11 +198,11 @@ class MainWindow(QMainWindow):
         self._correnti: list[Estrazione] = []
         self._worker: OcrWorker | None = None
         self._engine: OcrEngine | None = None
-        self.conf: dict = {"sorgente": "bundlato", "url_esterno": "", "preset_id": ""}
+        self.conf: dict = {"lingua": "en", "sorgente": "bundlato", "url_esterno": "", "preset_id": ""}
         self.applica_lingua()
 
     def _lingua(self) -> str:
-        return self.conf.get("lingua", "it")
+        return self.conf.get("lingua", "en")
 
     def applica_lingua(self) -> None:
         """(Ri)imposta tutti i testi statici dal catalogo `lingua.py`."""
@@ -225,8 +225,8 @@ class MainWindow(QMainWindow):
             self.doc.setText(t(lingua, "nessun_documento"))
         self.progress.setFormat(t(lingua, "progress_formato"))
         if self.statusBar().currentMessage() in (
-            t("it", "status_pronto"),
             t("en", "status_pronto"),
+            t("it", "status_pronto"),
         ):
             self.set_stato(t(lingua, "status_pronto"))
         self.aggiorna_intestazione()
@@ -542,10 +542,10 @@ class MainWindow(QMainWindow):
         corrente = self.testo.toPlainText()
         vuoti = {
             TESTO_VUOTO,
-            t("it", "testo_vuoto"),
             t("en", "testo_vuoto"),
-            t("it", "elaborazione_in_corso"),
+            t("it", "testo_vuoto"),
             t("en", "elaborazione_in_corso"),
+            t("it", "elaborazione_in_corso"),
         }
         ha_testo = bool(corrente.strip()) and corrente not in vuoti
         self.btn_copia.setEnabled(ha_testo)

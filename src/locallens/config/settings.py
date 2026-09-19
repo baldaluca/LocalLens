@@ -6,7 +6,7 @@ import tomllib
 from pathlib import Path
 
 DEFAULTS = {
-    "lingua": "it",
+    "lingua": "en",
     "sorgente": "bundlato",
     "url_esterno": "http://127.0.0.1:8011",
     "url_gpu_locale": "http://127.0.0.1:8011",
@@ -50,7 +50,7 @@ def carica(path: Path | None = None) -> dict:
     for chiave in SEGRET:
         conf[chiave] = DEFAULTS.get(chiave, "")
     if conf.get("lingua") not in LINGUE:
-        conf["lingua"] = "it"
+        conf["lingua"] = "en"
     return conf
 
 
