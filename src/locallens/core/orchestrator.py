@@ -128,6 +128,51 @@ def solo_cpu(motivo: str) -> OcrEngine:
     return OcrEngine(infer=infer, fallback=lambda p, i: estrai(i), sorgente="nessuno")
 
 
+def _make_infer(sorgente: str, base_url: str, preset, modello: str, prompt: str, token: str, max_side: int, contrasto: bool, timeout: int, post, motore: str, max_tokens: int = 2048):
+    """Unified prepara→build_payload→invia_chat closure for both sorgenti."""
+    from locallens.preprocessing.immagini import prepara
+
+    if sorgente == "esterno":
+        def infer(pagina_id: int, png: bytes) -> tuple[str, str]:
+            try:
+                pronta = prepara(png, max_side=max_side, contrasto=contrasto)
+            except Exception as e:
+                from locallens.core.errori import InferenzaError
+
+                raise InferenzaError(f"preprocessing fallito: {e}") from e
+            from locallens.core.client import build_ollama_payload, dialetto
+
+            b64 = base64.b64encode(pronta).decode()
+            if dialetto(base_url) == "ollama":
+                payload = build_ollama_payload(b64, prompt, modello, max_tokens=max_tokens)
+            else:
+                payload = build_chat_payload(b64, prompt, modello, max_tokens=max_tokens)
+            testo = invia_chat(base_url, payload, post=post, timeout=timeout, token=token or None)
+            return testo, "esterno"
+
+        return infer
+
+    # bundlato / locale
+    prompt_local = preset.prompt.get("system", "Transcribe.") if preset else prompt
+    limite = min(max_side, preset.max_side_px) if preset else max_side
+
+    def infer(pagina_id: int, png: bytes) -> tuple[str, str]:
+        try:
+            pronta = prepara(png, max_side=limite, contrasto=contrasto)
+        except Exception as e:
+            from locallens.core.errori import InferenzaError
+
+            raise InferenzaError(f"preprocessing fallito: {e}") from e
+        payload = build_chat_payload(
+            base64.b64encode(pronta).decode(), prompt_local, preset.id,
+            max_tokens=preset.max_tokens,
+        )
+        endpoint = base_url.rstrip("/") + "/v1/chat/completions"
+        return invia_chat(endpoint, payload, post=post, timeout=timeout), motore
+
+    return infer
+
+
 def crea_engine(
     base_url: str,
     preset: PresetModello,
@@ -144,24 +189,20 @@ def crea_engine(
 ) -> OcrEngine:
     """Collega client HTTP + fallback Tesseract dietro la pipeline. Default = tesseract reale."""
     from locallens.fallback.tesseract import estrai as tesseract_estrai
-    from locallens.preprocessing.immagini import prepara
 
-    prompt = preset.prompt.get("system", "Transcribe.")
-    limite = min(max_side, preset.max_side_px)
-
-    def infer(pagina_id: int, png: bytes) -> tuple[str, str]:
-        try:
-            pronta = prepara(png, max_side=limite, contrasto=contrasto)
-        except Exception as e:
-            from locallens.core.errori import InferenzaError
-
-            raise InferenzaError(f"preprocessing fallito: {e}") from e
-        payload = build_chat_payload(
-            base64.b64encode(pronta).decode(), prompt, preset.id,
-            max_tokens=preset.max_tokens,
-        )
-        endpoint = base_url.rstrip("/") + "/v1/chat/completions"
-        return invia_chat(endpoint, payload, post=post, timeout=timeout), motore
+    infer = _make_infer(
+        sorgente="bundlato",
+        base_url=base_url,
+        preset=preset,
+        modello=preset.id,
+        prompt=preset.prompt.get("system", "Transcribe."),
+        token="",
+        max_side=max_side,
+        contrasto=contrasto,
+        timeout=timeout,
+        post=post,
+        motore=motore,
+    )
 
     def fb_default(_pagina_id: int, png: bytes) -> str:
         return tesseract_estrai(png)
@@ -191,24 +232,21 @@ def crea_engine_cloud(
 ) -> OcrEngine:
     """Engine per servizio cloud OpenAI-compatibile: tutto a mano, nessun preset."""
     from locallens.fallback.tesseract import estrai as tesseract_estrai
-    from locallens.preprocessing.immagini import prepara
 
-    def infer(pagina_id: int, png: bytes) -> tuple[str, str]:
-        try:
-            pronta = prepara(png, max_side=max_side, contrasto=contrasto)
-        except Exception as e:
-            from locallens.core.errori import InferenzaError
-
-            raise InferenzaError(f"preprocessing fallito: {e}") from e
-        from locallens.core.client import build_ollama_payload, dialetto
-
-        b64 = base64.b64encode(pronta).decode()
-        if dialetto(base_url) == "ollama":
-            payload = build_ollama_payload(b64, prompt, modello, max_tokens=max_tokens)
-        else:
-            payload = build_chat_payload(b64, prompt, modello, max_tokens=max_tokens)
-        testo = invia_chat(base_url, payload, post=post, timeout=timeout, token=token or None)
-        return testo, "esterno"
+    infer = _make_infer(
+        sorgente="esterno",
+        base_url=base_url,
+        preset=None,
+        modello=modello,
+        prompt=prompt,
+        token=token,
+        max_side=max_side,
+        contrasto=contrasto,
+        timeout=timeout,
+        post=post,
+        motore="esterno",
+        max_tokens=max_tokens,
+    )
 
     def fb_default(_pagina_id: int, png: bytes) -> str:
         return tesseract_estrai(png)

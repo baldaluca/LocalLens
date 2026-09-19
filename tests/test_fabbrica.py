@@ -419,3 +419,14 @@ def test_costruisci_bundlato_ok_stato_inglese():
     assert eng == "engine"
     assert stato == t("en", "stato_gpu_locale", url=url)
     assert banner == ""
+
+
+def test_factory_rebuild_bundlato(monkeypatch):
+    from locallens.config.settings import Config
+    from locallens.core.fabbrica import EngineFactory
+    import locallens.core.fabbrica as fab
+    monkeypatch.setattr(fab, "disponibilita_gpu_locale", lambda *a, **k: True)
+    cfg = Config(lingua="en", sorgente="bundlato", url_gpu_locale="http://127.0.0.1:8011")
+    f = EngineFactory(cfg, verify=lambda url: True)
+    engine, stato, banner = f.rebuild(cfg)
+    assert "Local GPU" in stato or "GPU locale" in stato

@@ -6,17 +6,13 @@ from locallens.config.presets import preset_da_conf
 
 
 def costruisci_da_conf(conf):
-    """Boot completo: detect → preset → fabbrica. Ritorna (engine, stato, banner)."""
-    from locallens.core.fabbrica import costruisci, normalizza_sorgente
-    from locallens.hwdetect.detector import detect
+    """Boot completo: EngineFactory owns SorgenteModello. Ritorna (engine, stato, banner)."""
+    from locallens.config.settings import Config, as_dict
+    from locallens.core.fabbrica import EngineFactory
 
-    info = detect()
-    preset = preset_da_conf(conf)
-    conf = dict(conf, preset_id=preset.id)
-    conf, avviso = normalizza_sorgente(conf, info, preset)
-    engine, stato, banner = costruisci(conf, info, preset)
-    banner = "; ".join(b for b in (avviso, banner) if b)
-    return engine, stato, banner
+    cfg = conf if isinstance(conf, Config) else Config.from_dict(as_dict(conf))
+    factory = EngineFactory(cfg)
+    return factory.rebuild(cfg)
 
 
 def main() -> int:

@@ -402,12 +402,21 @@ class MainWindow(QMainWindow):
             ric = getattr(self, "_ricostruttore", None)
             if ric is not None:
                 engine, stato, banner = ric(self.conf)
-                self.set_engine(engine)
-                self.set_stato(stato)
-                if banner:
-                    self.mostra_banner(banner)
-                else:
-                    self.nascondi_banner()
+            else:
+                # use EngineFactory directly when no ricostruttore injected (e.g., tests)
+                from locallens.config.settings import Config as _Config
+
+                from locallens.core.fabbrica import EngineFactory
+
+                cfg = self.conf if isinstance(self.conf, _Config) else _Config.from_dict(as_dict(self.conf))
+                factory = EngineFactory(cfg)
+                engine, stato, banner = factory.rebuild(cfg)
+            self.set_engine(engine)
+            self.set_stato(stato)
+            if banner:
+                self.mostra_banner(banner)
+            else:
+                self.nascondi_banner()
 
     def avvia(
         self, immagini: list[bytes], engine: OcrEngine, documento: str = ""
