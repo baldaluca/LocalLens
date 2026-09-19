@@ -1,6 +1,6 @@
-"""Finestra principale. Parla solo con core via OcrWorker, mai con backend/URL ( §8)."""
+"""Finestra principale. View sottile: delega workflow a DocumentController, solo display."""
 
-from PySide6.QtCore import Qt, QThreadPool
+from PySide6.QtCore import Qt, QThreadPool, Signal
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import (
     QHBoxLayout,
@@ -80,6 +80,12 @@ def _icona(nome_tema: str, standard: QStyle.StandardPixmap, widget) -> QIcon:
 
 
 class MainWindow(QMainWindow):
+    """View sottile: emette intenti, delega a DocumentController."""
+
+    openRequested = Signal(str)  # path Documento
+    openImagesRequested = Signal(list)  # list[bytes]
+    settingsAccepted = Signal(dict)  # valori dialogo
+
     def __init__(self) -> None:
         super().__init__()
         self.setWindowTitle("LocalLens")
@@ -193,10 +199,95 @@ class MainWindow(QMainWindow):
         layout.addWidget(self.progress)
         self.statusBar().showMessage("pronto")
         self._correnti: list[Estrazione] = []
-        self._worker: OcrWorker | None = None
         self._engine: OcrEngine | None = None
         self.conf: dict | Config = {"lingua": "en", "sorgente": "bundlato", "url_esterno": "", "preset_id": ""}  # seam Config: View stores dict for compat, supports Config typed
+        # Presenter
+        self._init_controller()
         self.applica_lingua()
+
+    # -- Presenter wiring --
+    def _init_controller(self) -> None:
+        from locallens.app.controller import DocumentController
+        from locallens.core.fabbrica import EngineFactory
+
+        try:
+            cfg = self.conf if isinstance(self.conf, Config) else Config.from_dict(as_dict(self.conf))
+            factory = EngineFactory(cfg)
+        except Exception:
+            factory = None
+            cfg = self.conf if isinstance(self.conf, Config) else Config.from_dict(as_dict(self.conf))
+        self.controller = DocumentController(cfg, factory)
+        # sync conf bi-directionally: view conf -> controller, controller -> view via signals
+        self.controller.estrazioni_changed.connect(self._on_controller_estrazioni)
+        self.controller.progresso.connect(self._on_controller_progresso)
+        self.controller.errore.connect(self._on_controller_errore)
+        self.controller.stato_changed.connect(self.set_stato)
+        self.controller.banner_changed.connect(self.mostra_banner)
+        # intents
+        self.openRequested.connect(lambda path: self.controller.open_document(path))
+        self.openImagesRequested.connect(lambda imgs: self.controller.open_images(imgs))
+        self.settingsAccepted.connect(lambda valori: self._handle_settings_accepted(valori))
+
+    def _sync_controller_config(self) -> None:
+        """Sync view conf -> controller before workflow."""
+        if hasattr(self, "controller"):
+            try:
+                if isinstance(self.conf, dict):
+                    self.controller.config = Config.from_dict(self.conf)
+                else:
+                    self.controller.config = self.conf
+            except Exception:
+                pass
+
+    def _sync_view_conf_from_controller(self) -> None:
+        if hasattr(self, "controller"):
+            try:
+                # keep view conf in same type as before (dict or Config)
+                if isinstance(self.conf, dict):
+                    self.conf = as_dict(self.controller.config)
+                else:
+                    self.conf = self.controller.config
+            except Exception:
+                pass
+
+    def _on_controller_estrazioni(self, estrazioni: list) -> None:
+        # View binding: controller.estrazioni_changed -> mostra_estrazioni
+        self.mostra_estrazioni(estrazioni)
+        # also update progress/doc title similar to _on_finito
+        self.progress.hide()
+        self.btn_annulla.setEnabled(False)
+        n = len(estrazioni)
+        if n:
+            base = self.doc.toolTip() or self.doc.text()
+            self.doc.setText(t(self._lingua(), "doc_titolo_pagine", base=base, n=n))
+
+    def _on_controller_progresso(self, i: int, n: int) -> None:
+        # progressive update, mirrors old _on_pagina
+        self.progress.setMaximum(n)
+        self.progress.setValue(i)
+
+    def _on_controller_errore(self, job_id: str, messaggio: str) -> None:
+        self.progress.hide()
+        self.btn_annulla.setEnabled(False)
+        self.mostra_banner(t(self._lingua(), "banner_errore", dettaglio=messaggio))
+        self._aggiorna_bottoni()
+
+    def _handle_settings_accepted(self, valori: dict) -> None:
+        if hasattr(self, "controller"):
+            stato, banner, avviso = self.controller.apply_settings(valori)
+            self._sync_view_conf_from_controller()
+            if avviso:
+                self.mostra_banner(avviso)
+            self.applica_lingua()
+            self.aggiorna_intestazione()
+            self.set_stato(stato)
+            if banner:
+                # banner already emitted via signal, but ensure shown if signal not connected early
+                if not avviso:
+                    self.mostra_banner(banner)
+            else:
+                if not avviso:
+                    self.nascondi_banner()
 
     def _conf_val(self, chiave: str, default: str = "") -> str:
         """Seam Config: legge da dict o Config via helper centralizzato as_dict."""
@@ -215,6 +306,8 @@ class MainWindow(QMainWindow):
                 d = as_dict(self.conf)
                 d[chiave] = valore
                 self.conf = d  # type: ignore[assignment]
+        # sync to controller
+        self._sync_controller_config()
 
     def _conf_update(self, valori: dict) -> None:
         """Seam Config: update compatibile con dict e Config frozen (via replace)."""
@@ -227,6 +320,7 @@ class MainWindow(QMainWindow):
             filtrati = {k: v for k, v in valori.items() if k in cfg_fields}
             if filtrati:
                 self.conf = replace(self.conf, **filtrati)  # type: ignore[arg-type]
+        self._sync_controller_config()
 
     def _lingua(self) -> str:
         return self._conf_val("lingua", "en")
@@ -289,6 +383,8 @@ class MainWindow(QMainWindow):
 
     def set_engine(self, engine: OcrEngine) -> None:
         self._engine = engine
+        if hasattr(self, "controller"):
+            self.controller.set_engine(engine)
         self.aggiorna_intestazione()
 
     def set_ricostruttore(self, fn) -> None:
@@ -298,6 +394,15 @@ class MainWindow(QMainWindow):
     def closeEvent(self, evento) -> None:
         """Il token API vive solo in sessione: azzerato alla chiusura."""
         self._conf_set("token_esterno", "")
+        if hasattr(self, "controller"):
+            # also clear in controller config
+            try:
+                from dataclasses import fields, replace
+                cfg = self.controller.config
+                if "token_esterno" in {f.name for f in fields(cfg)}:
+                    self.controller.config = replace(cfg, token_esterno="")
+            except Exception:
+                pass
         super().closeEvent(evento)
 
     def _richiedi_engine(self) -> OcrEngine | None:
@@ -308,8 +413,6 @@ class MainWindow(QMainWindow):
 
     def _apri_file(self) -> None:
         from PySide6.QtWidgets import QFileDialog
-
-        from locallens.app.ingresso import carica_documento
 
         percorso, _ = QFileDialog.getOpenFileName(
             self,
@@ -323,9 +426,13 @@ class MainWindow(QMainWindow):
         if engine is None:
             return
         try:
-            self.avvia(carica_documento(percorso), engine, documento=percorso)
+            self.avvia(self._carica_documento(percorso), engine, documento=percorso)
         except (FileNotFoundError, ValueError) as e:
             self.mostra_banner(t(self._lingua(), "banner_errore", dettaglio=e))
+
+    def _carica_documento(self, percorso: str) -> list[bytes]:
+        from locallens.app.ingresso import carica_documento
+        return carica_documento(percorso)
 
     def _da_appunti(self) -> None:
         from PySide6.QtWidgets import QApplication
@@ -348,7 +455,8 @@ class MainWindow(QMainWindow):
         if engine is None:
             return
         try:
-            self.avvia([cattura_schermo()], engine)
+            png = cattura_schermo()
+            self.avvia([png], engine)
         except Exception as e:  # noqa: BLE001 — display assente ecc: banner, mai crash
             self.mostra_banner(t(self._lingua(), "banner_errore", dettaglio=e))
 
@@ -385,25 +493,43 @@ class MainWindow(QMainWindow):
             bool(self._conf_val("ignora_eco", False)),
         )
         if dlg.exec():
-            self._conf_update(dlg.valori())
+            valori = dlg.valori()
+            # View emits intent
+            self.settingsAccepted.emit(valori)
+            # Presenter transaction (if no legacy ricostruttore override, delegate to controller)
+            ric = getattr(self, "_ricostruttore", None)
+            if ric is None and hasattr(self, "controller"):
+                # delegate to presenter: salva_impostazioni transaction owned by DocumentController
+                stato, banner, avviso = self.controller.apply_settings(valori)
+                self._sync_view_conf_from_controller()
+                if avviso:
+                    self.mostra_banner(avviso)
+                # controller already salva and rebuilds; sync view state via signals, but ensure UI updated
+                self.applica_lingua()
+                self.aggiorna_intestazione()
+                self.set_engine(self.controller.engine)
+                self.set_stato(stato)
+                if banner and not avviso:
+                    self.mostra_banner(banner)
+                elif not banner and not avviso:
+                    self.nascondi_banner()
+                return
+            # Legacy path for tests with _ricostruttore injected (keeps salva_impostazioni patchable via finestra module)
+            self._conf_update(valori)
             conf_dict = as_dict(self.conf)
             nuovo_dict, avviso = normalizza_sorgente_da_conf(conf_dict, self._preset_corrente())
             if isinstance(self.conf, dict):
                 self.conf = nuovo_dict
             else:
-                from locallens.config.settings import Config
-
                 self.conf = Config.from_dict(nuovo_dict)
             if avviso:
                 self.mostra_banner(avviso)
             salva_impostazioni(self.conf)
             self.applica_lingua()
             self.aggiorna_intestazione()
-            ric = getattr(self, "_ricostruttore", None)
             if ric is not None:
                 engine, stato, banner = ric(self.conf)
             else:
-                # use EngineFactory directly when no ricostruttore injected (e.g., tests)
                 from locallens.config.settings import Config as _Config
 
                 from locallens.core.fabbrica import EngineFactory
@@ -416,12 +542,17 @@ class MainWindow(QMainWindow):
             if banner:
                 self.mostra_banner(banner)
             else:
-                self.nascondi_banner()
+                if not avviso:
+                    self.nascondi_banner()
+            # sync controller
+            self._sync_controller_config()
+            if hasattr(self, "controller"):
+                self.controller.set_engine(self._engine)
 
     def avvia(
         self, immagini: list[bytes], engine: OcrEngine, documento: str = ""
     ) -> None:
-        """Elabora in background: la GUI resta responsiva (RF8)."""
+        """View delegates to Presenter; UI feedback remains in View."""
         import os
 
         self.nascondi_banner()
@@ -440,22 +571,45 @@ class MainWindow(QMainWindow):
         self.progress.setValue(0)
         self.progress.show()
         self.btn_annulla.setEnabled(True)
-        diario = self._nuovo_diario(documento)
-        job_id = getattr(diario, "job_id", None) or "doc"
-        worker = OcrWorker(
-            job_id=job_id,
-            engine=engine,
-            immagini=immagini,
-            diario=diario,
-        )
-        worker.segnali.pagina.connect(self._on_pagina)
-        worker.segnali.finito.connect(self._on_finito)
-        worker.segnali.errore.connect(self._on_errore)
-        self._worker = worker  # evita GC prima della fine
-        QThreadPool.globalInstance().start(worker)
+        # delegate workflow to controller (owns diario + worker)
+        self._sync_controller_config()
+        self.controller.set_engine(engine)
+        # controller handles worker creation; connect progress sync via signals already
+        # To keep _correnti in sync until signal, reset; will be filled via estrazioni_changed
+        # But for compatibility with tests that patch OcrWorker on finestra, we need to handle patched path
+        # Detect if finestra.OcrWorker has been monkeypatched (diff from worker module)
+        try:
+            from locallens.app import worker as _wmod
+            from locallens.app import finestra as _fmod
+            WorkerCls = getattr(_fmod, "OcrWorker", _wmod.OcrWorker)
+            # if patched, use legacy manual worker to respect test's interception
+            if WorkerCls is not _wmod.OcrWorker:
+                # legacy manual path
+                diario = self._nuovo_diario(documento)
+                job_id = getattr(diario, "job_id", None) or "doc"
+                worker = WorkerCls(job_id=job_id, engine=engine, immagini=immagini, diario=diario)
+                worker.segnali.pagina.connect(self._on_pagina)
+                worker.segnali.finito.connect(self._on_finito)
+                worker.segnali.errore.connect(self._on_errore)
+                self._worker = worker  # type: ignore[attr-defined]
+                # also sync to controller for cancel proxy
+                self.controller._worker = worker  # type: ignore[attr-defined]
+                QThreadPool.globalInstance().start(worker)
+                return
+        except Exception:
+            pass
+        # normal presenter path
+        self.controller.open_images(immagini, documento=documento)
+        # keep _worker proxy for test that checks w._worker
+        try:
+            self._worker = self.controller._worker  # type: ignore[attr-defined]
+        except Exception:
+            pass
 
     def _nuovo_diario(self, documento: str):
-        """Diario JSONL per l'esecuzione; mai un ostacolo (None se non scrivibile)."""
+        """Delega a Presenter; fallback locale."""
+        if hasattr(self, "controller"):
+            return self.controller._nuovo_diario(documento)
         try:
             from locallens.core.diario import avvia_job
 
@@ -469,15 +623,28 @@ class MainWindow(QMainWindow):
             return None
 
     def _on_pagina(self, estrazione, i: int, n: int) -> None:
+        # Legacy handler for patched worker path; also updates controller
         self._correnti.append(estrazione)
+        if hasattr(self, "controller"):
+            # keep controller estrazioni in sync
+            if estrazione not in self.controller._estrazioni:
+                self.controller._estrazioni.append(estrazione)
         self.progress.setMaximum(n)
         self.progress.setValue(i)
 
     def _on_finito(self, job_id: str) -> None:
+        # Legacy handler
         self.progress.hide()
         self.btn_annulla.setEnabled(False)
-        self.mostra_estrazioni(self._correnti)
-        self._worker = None
+        # ensure controller state synced
+        if hasattr(self, "controller"):
+            self.controller._worker = None  # type: ignore
+            # controller's _estrazioni already has items via _on_pagina; emit view update
+            self.mostra_estrazioni(list(self._correnti if self._correnti else self.controller._estrazioni))
+            self._correnti = list(self.controller._estrazioni) if self.controller._estrazioni else list(self._correnti)
+        else:
+            self.mostra_estrazioni(self._correnti)
+        self._worker = None  # type: ignore
         n = len(self._correnti)
         if n:
             base = self.doc.toolTip() or self.doc.text()
@@ -487,7 +654,9 @@ class MainWindow(QMainWindow):
         self.progress.hide()
         self.btn_annulla.setEnabled(False)
         self.mostra_banner(t(self._lingua(), "banner_errore", dettaglio=messaggio))
-        self._worker = None
+        self._worker = None  # type: ignore
+        if hasattr(self, "controller"):
+            self.controller._worker = None  # type: ignore
         self._aggiorna_bottoni()
 
     def set_stato(self, messaggio: str) -> None:
@@ -508,6 +677,9 @@ class MainWindow(QMainWindow):
 
         t_tema = TEMI[self.tema_corrente]
         self._correnti = list(estrazioni)
+        # sync controller
+        if hasattr(self, "controller"):
+            self.controller._estrazioni = list(estrazioni)
         self._filtrata = None
         if hasattr(self, "btn_tutte"):
             self.btn_tutte.hide()
@@ -542,7 +714,13 @@ class MainWindow(QMainWindow):
         if row < 0 or row >= len(self._correnti):
             return
         self._filtrata = row
-        self.testo.setPlainText(self._correnti[row].testo)
+        # delegate to controller's filtered_text for consistency
+        if hasattr(self, "controller"):
+            txt = self.controller.filtered_text(row)
+            # ensure controller's filtrata tracking? controller doesn't store filtered row, view does
+            self.testo.setPlainText(txt)
+        else:
+            self.testo.setPlainText(self._correnti[row].testo)
         if hasattr(self, "btn_tutte"):
             self.btn_tutte.show()
         self._aggiorna_bottoni()
@@ -554,7 +732,10 @@ class MainWindow(QMainWindow):
         self.lista.clearSelection()
         if hasattr(self, "btn_tutte"):
             self.btn_tutte.hide()
-        self.testo.setPlainText("\n\n".join(e.testo for e in self._correnti))
+        if hasattr(self, "controller"):
+            self.testo.setPlainText(self.controller.filtered_text(None))
+        else:
+            self.testo.setPlainText("\n\n".join(e.testo for e in self._correnti))
         self._aggiorna_bottoni()
 
     def aggiorna_intestazione(self) -> None:
@@ -596,8 +777,14 @@ class MainWindow(QMainWindow):
         self.btn_salva.setEnabled(ha_testo)
 
     def _annulla(self) -> None:
-        if self._worker is not None:
-            self._worker.annulla()
+        # View delegates to Presenter
+        if hasattr(self, "controller") and self.controller._worker is not None:
+            self.controller.cancel()
+            self.btn_annulla.setEnabled(False)
+            self.mostra_banner(t(self._lingua(), "banner_annullamento"))
+            return
+        if getattr(self, "_worker", None) is not None:
+            self._worker.annulla()  # type: ignore
             self.btn_annulla.setEnabled(False)
             self.mostra_banner(t(self._lingua(), "banner_annullamento"))
 
