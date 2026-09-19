@@ -68,7 +68,7 @@ def etichetta_motore(lingua: str, motore_usato: str, modello_esterno: str = "") 
     if motore_usato == "esterno":
         nome = (modello_esterno or "").strip()
         if nome:
-            return nome if len(nome) <= 28 else nome[:27] + "…"
+            return nome
         return t(lingua, "motore_esterno_generico")
     if motore_usato in _MOTORI_LOCALI:
         return t(lingua, "motore_locale")
