@@ -1,6 +1,5 @@
 """Scelta SorgenteModello dietro la stessa interfaccia client (RF10)."""
 
-import base64
 import sys
 
 from locallens.app.lingua import t
@@ -153,55 +152,31 @@ class EngineFactory:
         self._config = config
 
     def _make_infer(self, sorgente: str, base_url: str, preset, d: dict):
-        """Unified prepara→build_payload→invia_chat closure. One path for both sorgenti."""
-        # hide prepara, client payload builders inside closure
-        import base64 as _b64
-
-        from locallens.core.client import build_chat_payload, build_ollama_payload, dialetto, invia_chat
-        from locallens.preprocessing.immagini import prepara
+        """Delega a HttpInferAdapter — unico seam HTTP prepara/payload/invia."""
+        from locallens.core.client import HttpInferAdapter
 
         max_side = d.get("max_side_px", 2048)
         contrasto = d.get("contrasto", False)
 
         if sorgente == "esterno":
-            modello = (d.get("modello_esterno") or "").strip()
-            prompt = d.get("prompt_esterno", "")
-            token = (d.get("token_esterno") or "").strip()
-
-            def infer(pagina_id: int, png: bytes) -> tuple[str, str]:
-                try:
-                    pronta = prepara(png, max_side=max_side, contrasto=contrasto)
-                except Exception as e:
-                    from locallens.core.errori import InferenzaError
-
-                    raise InferenzaError(f"preprocessing fallito: {e}") from e
-                b64 = _b64.b64encode(pronta).decode()
-                if dialetto(base_url) == "ollama":
-                    payload = build_ollama_payload(b64, prompt, modello, max_tokens=2048)
-                else:
-                    payload = build_chat_payload(b64, prompt, modello, max_tokens=2048)
-                testo = invia_chat(base_url, payload, post=None, timeout=600, token=token or None)
-                return testo, "esterno"
-
-            return infer
-        # bundlato
-        prompt_local = preset.prompt.get("system", "Transcribe.") if preset else "Transcribe."
-        limite = min(max_side, preset.max_side_px) if preset else max_side
-
-        def infer(pagina_id: int, png: bytes) -> tuple[str, str]:
-            try:
-                pronta = prepara(png, max_side=limite, contrasto=contrasto)
-            except Exception as e:
-                from locallens.core.errori import InferenzaError
-
-                raise InferenzaError(f"preprocessing fallito: {e}") from e
-            payload = build_chat_payload(
-                _b64.b64encode(pronta).decode(), prompt_local, preset.id, max_tokens=preset.max_tokens
+            return HttpInferAdapter(
+                base_url=base_url,
+                preset=preset,
+                modello=(d.get("modello_esterno") or "").strip(),
+                prompt=d.get("prompt_esterno", ""),
+                token=(d.get("token_esterno") or "").strip(),
+                max_side=max_side,
+                contrasto=contrasto,
+                sorgente="esterno",
             )
-            endpoint = base_url.rstrip("/") + "/v1/chat/completions"
-            return invia_chat(endpoint, payload, post=None, timeout=600), "bundlato"
-
-        return infer
+        return HttpInferAdapter(
+            base_url=base_url,
+            preset=preset,
+            max_side=max_side,
+            contrasto=contrasto,
+            sorgente="bundlato",
+            motore="bundlato",
+        )
 
     def rebuild(self, config: Config) -> tuple:
         """(engine, stato, banner) from Config. Owns SorgenteModello + hardware check."""

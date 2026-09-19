@@ -291,30 +291,32 @@ def test_avvia_usa_job_id_del_diario(qapp, monkeypatch):
 
     from PySide6.QtCore import QCoreApplication, QThreadPool
 
-    from locallens.app import finestra as mod_finestra
+    from locallens.app import worker as mod_worker
     from locallens.core.orchestrator import OcrEngine
 
     catturati: dict = {}
 
-    Reale = mod_finestra.OcrWorker
+    Reale = mod_worker.OcrWorker
 
     def fabbrica(job_id, engine, immagini, diario):
         catturati["job_id"] = job_id
         catturati["diario"] = diario
         return Reale(job_id=job_id, engine=engine, immagini=immagini, diario=diario)
 
-    monkeypatch.setattr(mod_finestra, "OcrWorker", fabbrica)
+    monkeypatch.setattr(mod_worker, "OcrWorker", fabbrica)
     diario = SimpleNamespace(
         job_id="jid-diario-1",
         registra_pagina=lambda *a, **k: None,
         chiudi=lambda *a, **k: None,
     )
-    monkeypatch.setattr(MainWindow, "_nuovo_diario", lambda self, documento="": diario)
+    from locallens.app.controller import DocumentController
+
+    monkeypatch.setattr(DocumentController, "_nuovo_diario", lambda self, documento="": diario)
     w = MainWindow()
     eng = OcrEngine(infer=lambda p, i: (f"t{p}", "cuda"), fallback=lambda p, i: "fb")
     finiti: list = []
-    orig_finito = w._on_finito
-    w._on_finito = lambda jid: (finiti.append(jid), orig_finito(jid))
+    orig_finito = w.controller._on_finito
+    w.controller._on_finito = lambda jid: (finiti.append(jid), orig_finito(jid))
     w.avvia([b"a"], eng)
     assert QThreadPool.globalInstance().waitForDone(5000)
     QCoreApplication.processEvents()
@@ -327,29 +329,31 @@ def test_avvia_errore_riporta_job_id_del_diario(qapp, monkeypatch):
 
     from PySide6.QtCore import QCoreApplication, QThreadPool
 
-    from locallens.app import finestra as mod_finestra
+    from locallens.app import worker as mod_worker
     from locallens.core.orchestrator import OcrEngine
 
     catturati: dict = {}
-    Reale = mod_finestra.OcrWorker
+    Reale = mod_worker.OcrWorker
 
     def fabbrica(job_id, engine, immagini, diario):
         catturati["job_id"] = job_id
         return Reale(job_id=job_id, engine=engine, immagini=immagini, diario=diario)
 
-    monkeypatch.setattr(mod_finestra, "OcrWorker", fabbrica)
+    monkeypatch.setattr(mod_worker, "OcrWorker", fabbrica)
     diario = SimpleNamespace(
         job_id="jid-errore-9",
         registra_pagina=lambda *a, **k: None,
         chiudi=lambda *a, **k: None,
     )
-    monkeypatch.setattr(MainWindow, "_nuovo_diario", lambda self, documento="": diario)
+    from locallens.app.controller import DocumentController
+
+    monkeypatch.setattr(DocumentController, "_nuovo_diario", lambda self, documento="": diario)
     w = MainWindow()
     eng = OcrEngine(infer=lambda p, i: (f"t{p}", "cuda"), fallback=lambda p, i: "fb")
     eng.submit_document = lambda *a, **k: (_ for _ in ()).throw(RuntimeError("boom-x"))
     errori: list = []
-    orig_errore = w._on_errore
-    w._on_errore = lambda jid, msg: (errori.append((jid, msg)), orig_errore(jid, msg))
+    orig_errore = w.controller._on_errore
+    w.controller._on_errore = lambda jid, msg: (errori.append((jid, msg)), orig_errore(jid, msg))
     w.avvia([b"a"], eng)
     assert QThreadPool.globalInstance().waitForDone(5000)
     QCoreApplication.processEvents()
@@ -360,17 +364,20 @@ def test_avvia_errore_riporta_job_id_del_diario(qapp, monkeypatch):
 def test_avvia_fallback_doc_senza_diario(qapp, monkeypatch):
     from PySide6.QtCore import QCoreApplication, QThreadPool
 
-    from locallens.app import finestra as mod_finestra
+    from locallens.app import worker as mod_worker
     from locallens.core.orchestrator import OcrEngine
 
     catturati: dict = {}
-    Reale = mod_finestra.OcrWorker
+    Reale = mod_worker.OcrWorker
 
     def fabbrica(job_id, engine, immagini, diario):
         catturati["job_id"] = job_id
         return Reale(job_id=job_id, engine=engine, immagini=immagini, diario=diario)
 
-    monkeypatch.setattr(mod_finestra, "OcrWorker", fabbrica)
+    monkeypatch.setattr(mod_worker, "OcrWorker", fabbrica)
+    from locallens.app.controller import DocumentController
+
+    monkeypatch.setattr(DocumentController, "_nuovo_diario", lambda self, documento="": None)
     monkeypatch.setattr(MainWindow, "_nuovo_diario", lambda self, documento="": None)
     w = MainWindow()
     eng = OcrEngine(infer=lambda p, i: (f"t{p}", "cuda"), fallback=lambda p, i: "fb")

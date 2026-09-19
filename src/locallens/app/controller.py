@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from PySide6.QtCore import QObject, QThreadPool, Signal
 
-from locallens.app.worker import OcrWorker
 from locallens.config.settings import Config, as_dict, salva as salva_impostazioni
 from locallens.core.orchestrator import Estrazione
 
@@ -31,7 +30,7 @@ class DocumentController(QObject):
             self._config = config
         self._factory = factory
         self._estrazioni: list[Estrazione] = []
-        self._worker: OcrWorker | None = None
+        self._worker: object | None = None
         self._engine = None
         self._filtrata: int | None = None
         # Build initial engine if factory provided
@@ -137,7 +136,9 @@ class DocumentController(QObject):
             return
         diario = self._nuovo_diario(documento)
         job_id = getattr(diario, "job_id", None) or "doc"
-        worker = OcrWorker(job_id=job_id, engine=engine, immagini=immagini, diario=diario)
+        from locallens.app import worker as _wmod
+
+        worker = _wmod.OcrWorker(job_id=job_id, engine=engine, immagini=immagini, diario=diario)
         worker.segnali.pagina.connect(self._on_pagina)
         worker.segnali.finito.connect(self._on_finito)
         worker.segnali.errore.connect(self._on_errore)

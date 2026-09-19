@@ -280,14 +280,12 @@ class MainWindow(QMainWindow):
                 self.mostra_banner(avviso)
             self.applica_lingua()
             self.aggiorna_intestazione()
+            self.set_engine(self.controller.engine)
             self.set_stato(stato)
-            if banner:
-                # banner already emitted via signal, but ensure shown if signal not connected early
-                if not avviso:
-                    self.mostra_banner(banner)
-            else:
-                if not avviso:
-                    self.nascondi_banner()
+            if banner and not avviso:
+                self.mostra_banner(banner)
+            elif not banner and not avviso:
+                self.nascondi_banner()
 
     def _conf_val(self, chiave: str, default: str = "") -> str:
         """Seam Config: legge da dict o Config via helper centralizzato as_dict."""
@@ -505,25 +503,10 @@ class MainWindow(QMainWindow):
             if not dlg.exec():
                 return
             valori = dlg.valori()
-        # View emits intent
+        # View emits intent — single path via settingsAccepted -> _handle_settings_accepted
         self.settingsAccepted.emit(valori)
-        # Presenter transaction (if no legacy ricostruttore override, delegate to controller)
         ric = getattr(self, "_ricostruttore", None)
-        if ric is None and hasattr(self, "controller"):
-            # delegate to presenter: salva_impostazioni transaction owned by DocumentController
-            stato, banner, avviso = self.controller.apply_settings(valori)
-            self._sync_view_conf_from_controller()
-            if avviso:
-                self.mostra_banner(avviso)
-            # controller already salva and rebuilds; sync view state via signals, but ensure UI updated
-            self.applica_lingua()
-            self.aggiorna_intestazione()
-            self.set_engine(self.controller.engine)
-            self.set_stato(stato)
-            if banner and not avviso:
-                self.mostra_banner(banner)
-            elif not banner and not avviso:
-                self.nascondi_banner()
+        if ric is None:
             return
         # Legacy path for tests with _ricostruttore injected (keeps salva_impostazioni patchable via finestra module)
         self._conf_update(valori)
@@ -582,34 +565,9 @@ class MainWindow(QMainWindow):
         self.progress.setValue(0)
         self.progress.show()
         self.btn_annulla.setEnabled(True)
-        # delegate workflow to controller (owns diario + worker)
+        # delegate workflow to controller (owns diario + worker) — single seam via controller
         self._sync_controller_config()
         self.controller.set_engine(engine)
-        # controller handles worker creation; connect progress sync via signals already
-        # To keep _correnti in sync until signal, reset; will be filled via estrazioni_changed
-        # But for compatibility with tests that patch OcrWorker on finestra, we need to handle patched path
-        # Detect if finestra.OcrWorker has been monkeypatched (diff from worker module)
-        try:
-            from locallens.app import worker as _wmod
-            from locallens.app import finestra as _fmod
-            WorkerCls = getattr(_fmod, "OcrWorker", _wmod.OcrWorker)
-            # if patched, use legacy manual worker to respect test's interception
-            if WorkerCls is not _wmod.OcrWorker:
-                # legacy manual path
-                diario = self._nuovo_diario(documento)
-                job_id = getattr(diario, "job_id", None) or "doc"
-                worker = WorkerCls(job_id=job_id, engine=engine, immagini=immagini, diario=diario)
-                worker.segnali.pagina.connect(self._on_pagina)
-                worker.segnali.finito.connect(self._on_finito)
-                worker.segnali.errore.connect(self._on_errore)
-                self._worker = worker  # type: ignore[attr-defined]
-                # also sync to controller for cancel proxy
-                self.controller._worker = worker  # type: ignore[attr-defined]
-                QThreadPool.globalInstance().start(worker)
-                return
-        except Exception:
-            pass
-        # normal presenter path
         self.controller.open_images(immagini, documento=documento)
         # keep _worker proxy for test that checks w._worker
         try:
