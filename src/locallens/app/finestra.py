@@ -340,10 +340,10 @@ class MainWindow(QMainWindow):
             parent=self,
             tema=self.tema_corrente,
             gpu_locale_disponibile=self._gpu_locale_disponibile(),
-            lingua=self.conf.get("lingua", "it"),
+            lingua=self.conf.get("lingua", "en"),
         )
         dlg.set_sorgente(self.conf.get("sorgente", "bundlato"))
-        dlg.set_lingua(self.conf.get("lingua", "it"))
+        dlg.set_lingua(self.conf.get("lingua", "en"))
         dlg.set_url_esterno(self.conf.get("url_esterno", ""))
         dlg.set_url_gpu_locale(self.conf.get("url_gpu_locale", self.conf.get("url_esterno", "")))
         dlg.set_cloud(
