@@ -1,5 +1,7 @@
 """Catalogo stringhe UI IT/EN e helper `t` (fondamenta lingua applicazione)."""
 
+from typing import Literal
+
 LINGUE = ("it", "en")
 
 STRINGS: dict[str, dict[str, str]] = {
@@ -156,7 +158,110 @@ STRINGS: dict[str, dict[str, str]] = {
 }
 
 
+Chiave = Literal[
+    "btn_apri",
+    "btn_incolla",
+    "btn_schermo",
+    "btn_annulla",
+    "btn_copia",
+    "btn_salva",
+    "btn_mostra_tutte",
+    "btn_impostazioni",
+    "btn_tema",
+    "testo_vuoto",
+    "nessun_documento",
+    "progress_formato",
+    "status_pronto",
+    "banner_motore_non_pronto",
+    "banner_errore",
+    "banner_appunti_vuoti",
+    "banner_fallback_cpu",
+    "banner_annullamento",
+    "elaborazione_in_corso",
+    "dialogo_apri_titolo",
+    "dialogo_apri_filtro",
+    "salva_titolo",
+    "salva_messaggio",
+    "dialogo_salva_titolo",
+    "dialogo_salva_filtro",
+    "riga_pagina",
+    "motore_locale",
+    "motore_esterno_generico",
+    "motore_cpu",
+    "blocco_pagina",
+    "doc_titolo_pagine",
+    "doc_nome_immagini",
+    "sorgente_bundlato",
+    "sorgente_esterno",
+    "sorgente_nessuno",
+    "dettaglio_solo_cpu",
+    "pill_formato",
+    "dlg_impostazioni_titolo",
+    "etichetta_sorgente",
+    "etichetta_url",
+    "etichetta_token",
+    "token_placeholder",
+    "token_tooltip",
+    "etichetta_modello",
+    "etichetta_prompt",
+    "etichetta_lingue",
+    "etichetta_soglia",
+    "etichetta_ignora_eco",
+    "checkbox_istruzioni",
+    "aiuto_lingue",
+    "aiuto_soglia",
+    "aiuto_eco",
+    "avviso_privacy_esterno",
+    "tooltip_aiuto",
+    "banner_gpu_non_rilevata",
+    "banner_privacy_url",
+    "motivo_solo_tesseract",
+    "stato_esterno",
+    "stato_esterno_non_configurato",
+    "banner_esterno_non_configurato",
+    "motivo_esterno_manca_modello",
+    "motivo_esterno_manca_token",
+    "motivo_esterno_manca_modello_token",
+    "stato_gpu_locale",
+    "stato_nessuno",
+    "stato_gpu_solo_cpu",
+    "motivo_gpu_non_raggiungibile",
+    "banner_solo_cpu_assente",
+    "etichetta_lingua",
+    "lingua_nome_it",
+    "lingua_nome_en",
+    "tema_nome_chiaro",
+    "tema_nome_scuro",
+]
+
+SORGENTE_LABELS: dict[str, str] = {
+    "bundlato": "sorgente_bundlato",
+    "esterno": "sorgente_esterno",
+    "nessuno": "sorgente_nessuno",
+}
+
+# Compat: alias storico usato da finestra/impostazioni prima della centralizzazione
+_CHIAVE_SORGENTE = SORGENTE_LABELS
+
+
+class LinguaService:
+    """Service typed per LinguaInterfaccia: seam LinguaInterfaccia."""
+
+    def __init__(self, lingua: str = "en") -> None:
+        self._lingua = lingua if lingua in LINGUE else "en"
+
+    def t(self, chiave: Chiave, **fmt) -> str:  # type: ignore[valid-type]
+        tabella = STRINGS.get(self._lingua) or STRINGS["en"]
+        return tabella[chiave].format(**fmt)  # type: ignore[index]
+
+    def set_lingua(self, lingua: str) -> None:
+        self._lingua = lingua if lingua in LINGUE else "en"
+
+    @property
+    def lingua(self) -> str:
+        return self._lingua
+
+
 def t(lingua: str, chiave: str, **fmt) -> str:
-    """Rende STRINGS[lingua][chiave].format(**fmt); lingua ignota → "en"."""
-    tabella = STRINGS.get(lingua) or STRINGS["en"]
-    return tabella[chiave].format(**fmt)
+    """Compat shim: delega a LinguaService (fondamenta lingua applicazione)."""
+    return LinguaService(lingua).t(chiave, **fmt)  # type: ignore[arg-type]

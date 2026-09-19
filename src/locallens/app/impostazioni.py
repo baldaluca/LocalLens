@@ -16,12 +16,12 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from locallens.app.lingua import LINGUE, t
+from locallens.app.lingua import LINGUE, SORGENTE_LABELS, t
 from locallens.app.tema import applica_tavolozza, qss
 from locallens.core.rete import is_url_privata
 
-_ID_SORGENTI = ("bundlato", "esterno", "nessuno")
-_CHIAVE_SORGENTE = {"bundlato": "sorgente_bundlato", "esterno": "sorgente_esterno", "nessuno": "sorgente_nessuno"}
+_ID_SORGENTI = tuple(SORGENTE_LABELS.keys())
+_CHIAVE_SORGENTE = SORGENTE_LABELS
 
 _ID_LINGUE = ("it", "en")
 
@@ -54,7 +54,7 @@ class DialogoImpostazioni(QDialog):
             ident for ident in _ID_SORGENTI
             if ident != "bundlato" or gpu_locale_disponibile
         ]
-        self.sorgente.addItems([t(lingua, _CHIAVE_SORGENTE[i]) for i in self._sorgente_ids])
+        self.sorgente.addItems([t(lingua, SORGENTE_LABELS[i]) for i in self._sorgente_ids])
         self.sorgente.currentTextChanged.connect(lambda _: self._aggiorna_avviso())
         self.sorgente.currentTextChanged.connect(lambda _: self._aggiorna_viste())
         layout.addRow(t(lingua, "etichetta_sorgente"), self.sorgente)

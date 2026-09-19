@@ -20,7 +20,7 @@ from PySide6.QtWidgets import (
 
 from locallens.app.icone import percorso_icona
 from locallens.app.impostazioni import DialogoImpostazioni
-from locallens.app.lingua import t
+from locallens.app.lingua import SORGENTE_LABELS, t
 from locallens.app.tema import NOMI_TEMI, qss
 from locallens.app.worker import OcrWorker
 from locallens.config.settings import Config, as_dict, salva as salva_impostazioni
@@ -31,14 +31,11 @@ TESTO_VUOTO = (
     "Sorgenti: file • appunti • screenshot."
 )
 
-_CHIAVE_SORGENTE = {
-    "bundlato": "sorgente_bundlato",
-    "esterno": "sorgente_esterno",
-    "nessuno": "sorgente_nessuno",
-}
+# Back-compat: _CHIAVE_SORGENTE ora alias single source SORGENTE_LABELS in lingua
+_CHIAVE_SORGENTE = SORGENTE_LABELS
 
 # Alias di compatibilità (it) — il codice usa il catalogo via `t`.
-ETICHETTE_SORGENTE = {k: t("it", v) for k, v in _CHIAVE_SORGENTE.items()}
+ETICHETTE_SORGENTE = {k: t("it", v) for k, v in SORGENTE_LABELS.items()}
 
 _CHIAVE_TEMA_NOME = {
     "chiaro": "tema_nome_chiaro",
@@ -570,7 +567,7 @@ class MainWindow(QMainWindow):
 
         t_tema = TEMI[self.tema_corrente]
         colore = t_tema[colori.get(sorgente, "muted")]
-        etichetta = t(lingua, _CHIAVE_SORGENTE[sorgente]) if sorgente in _CHIAVE_SORGENTE else sorgente
+        etichetta = t(lingua, SORGENTE_LABELS[sorgente]) if sorgente in SORGENTE_LABELS else sorgente
         self.pill.setText(
             f"<span style='color:{colore}'>●</span> "
             f"{t(lingua, 'pill_formato', etichetta=etichetta, dettaglio=dettaglio)}"

@@ -33,3 +33,17 @@ def test_nessun_valore_vuoto():
     for lingua in LINGUE:
         for chiave, valore in STRINGS[lingua].items():
             assert valore.strip() != "", (lingua, chiave)
+
+
+def test_lingua_service_typed():
+    from locallens.app.lingua import LinguaService
+
+    s = LinguaService("it")
+    assert s.t("btn_apri") == "Apri file/PDF"
+    s.set_lingua("en")
+    assert s.t("btn_apri") == "Open file/PDF"
+    # missing key should raise at type-check, at runtime KeyError
+    import pytest
+
+    with pytest.raises(KeyError):
+        s.t("chiave_che_non_esiste")
