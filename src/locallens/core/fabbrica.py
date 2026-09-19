@@ -7,17 +7,33 @@ from locallens.core.orchestrator import solo_cpu as _solo_cpu_default
 from locallens.core.rete import is_url_privata, resolve_binary, verifica_health
 
 
+def _as_dict(conf) -> dict:
+    """Seam Config: accetta dict o Config typed, normalizza a dict."""
+    if isinstance(conf, dict):
+        return conf
+    if hasattr(conf, "to_dict"):
+        try:
+            return conf.to_dict()  # type: ignore[attr-defined]
+        except Exception:
+            pass
+    try:
+        return dict(conf)  # type: ignore[arg-type]
+    except Exception:
+        return conf  # type: ignore[return-value]
+
+
 def _contesto(conf) -> dict:
     """Contesto filtro anti-self-hit: stringa TOML "it,en" → tupla per crea_engine."""
+    d = _as_dict(conf)
     lingue = tuple(
         lingua.strip()
-        for lingua in str(conf.get("lingue_filtro", "it")).split(",")
+        for lingua in str(d.get("lingue_filtro", "it")).split(",")
         if lingua.strip()
     ) or ("it",)
     return {
         "lingue_attese": lingue,
-        "soglia_righe_loop": int(conf.get("soglia_righe_loop", 5)),
-        "ignora_eco": bool(conf.get("ignora_eco", False)),
+        "soglia_righe_loop": int(d.get("soglia_righe_loop", 5)),
+        "ignora_eco": bool(d.get("ignora_eco", False)),
     }
 
 
@@ -50,27 +66,29 @@ def normalizza_sorgente_da_conf(conf, preset, **rileva_kw) -> tuple[dict, str | 
 
 def normalizza_sorgente(conf, info, preset, **rileva_kw) -> tuple[dict, str | None]:
     """Se il config chiede bundlato ma la GPU locale non è rilevata, ripiega su esterno."""
-    if conf.get("sorgente", "bundlato") == "bundlato" and not disponibilita_gpu_locale(
+    d = _as_dict(conf)
+    if d.get("sorgente", "bundlato") == "bundlato" and not disponibilita_gpu_locale(
         info, preset, **rileva_kw
     ):
-        nuova = dict(conf, sorgente="esterno")
-        return nuova, t(conf.get("lingua", "it"), "banner_gpu_non_rilevata")
-    return conf, None
+        nuova = dict(d, sorgente="esterno")
+        return nuova, t(d.get("lingua", "it"), "banner_gpu_non_rilevata")
+    return d, None
 
 
 def costruisci(conf, info, preset, gestore=None, crea=None, solo_cpu=None, pesi=None, verifica=None, crea_cloud=None):
     """(engine, stato, banner). Dipendenze iniettabili; default = reali."""
     from locallens.core.orchestrator import crea_engine as _crea
 
+    d = _as_dict(conf)
     crea = crea or _crea
     verifica = verifica or verifica_health
-    sorgente = conf.get("sorgente", "bundlato")
-    lingua = conf.get("lingua", "it")
+    sorgente = d.get("sorgente", "bundlato")
+    lingua = d.get("lingua", "it")
 
     if sorgente == "esterno":
-        url = conf.get("url_esterno", "http://127.0.0.1:8011")
-        modello = (conf.get("modello_esterno") or "").strip()
-        token = (conf.get("token_esterno") or "").strip()
+        url = d.get("url_esterno", "http://127.0.0.1:8011")
+        modello = (d.get("modello_esterno") or "").strip()
+        token = (d.get("token_esterno") or "").strip()
         manca_modello = not modello
         manca_token = not token
         if manca_modello or manca_token:
@@ -96,11 +114,11 @@ def costruisci(conf, info, preset, gestore=None, crea=None, solo_cpu=None, pesi=
         engine = crea_cloud(
             url,
             modello=modello,
-            prompt=conf.get("prompt_esterno", ""),
+            prompt=d.get("prompt_esterno", ""),
             token=token,
-            max_side=conf.get("max_side_px", 2048),
-            contrasto=conf.get("contrasto", False),
-            **_contesto(conf),
+            max_side=d.get("max_side_px", 2048),
+            contrasto=d.get("contrasto", False),
+            **_contesto(d),
         )
         return engine, f"esterno • {url}", banner
 
@@ -114,16 +132,16 @@ def costruisci(conf, info, preset, gestore=None, crea=None, solo_cpu=None, pesi=
         )
 
     # bundlato = GPU locale: usa il server all'URL configurato, senza avviare binari.
-    url = conf.get("url_gpu_locale") or conf.get("url_esterno", "http://127.0.0.1:8011")
+    url = d.get("url_gpu_locale") or d.get("url_esterno", "http://127.0.0.1:8011")
     if verifica(url):
         return (
             crea(
                 url,
                 preset,
                 motore="bundlato",
-                max_side=conf.get("max_side_px", 2048),
-                contrasto=conf.get("contrasto", False),
-                **_contesto(conf),
+                max_side=d.get("max_side_px", 2048),
+                contrasto=d.get("contrasto", False),
+                **_contesto(d),
             ),
             t(lingua, "stato_gpu_locale", url=url),
             "",

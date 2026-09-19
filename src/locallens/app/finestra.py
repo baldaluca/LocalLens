@@ -23,7 +23,7 @@ from locallens.app.impostazioni import DialogoImpostazioni
 from locallens.app.lingua import t
 from locallens.app.tema import NOMI_TEMI, qss
 from locallens.app.worker import OcrWorker
-from locallens.config.settings import salva as salva_impostazioni
+from locallens.config.settings import Config, salva as salva_impostazioni
 from locallens.core.orchestrator import Estrazione, OcrEngine
 
 TESTO_VUOTO = (
@@ -198,11 +198,17 @@ class MainWindow(QMainWindow):
         self._correnti: list[Estrazione] = []
         self._worker: OcrWorker | None = None
         self._engine: OcrEngine | None = None
-        self.conf: dict = {"lingua": "en", "sorgente": "bundlato", "url_esterno": "", "preset_id": ""}
+        self.conf: dict | Config = {"lingua": "en", "sorgente": "bundlato", "url_esterno": "", "preset_id": ""}  # seam Config: View stores dict for compat, supports Config typed
         self.applica_lingua()
 
+    def _conf_val(self, chiave: str, default: str = "") -> str:
+        """Seam Config: legge da dict o Config."""
+        if isinstance(self.conf, dict):
+            return self.conf.get(chiave, default)  # type: ignore[union-attr]
+        return getattr(self.conf, chiave, default)
+
     def _lingua(self) -> str:
-        return self.conf.get("lingua", "en")
+        return self._conf_val("lingua", "en")
 
     def applica_lingua(self) -> None:
         """(Ri)imposta tutti i testi statici dal catalogo `lingua.py`."""
@@ -327,7 +333,10 @@ class MainWindow(QMainWindow):
 
     def _preset_corrente(self):
         from locallens.config.presets import preset_da_conf
-        return preset_da_conf(self.conf)
+
+        # seam Config: normalize to dict for preset lookup
+        conf_dict = self.conf if isinstance(self.conf, dict) else self.conf.to_dict()  # type: ignore[union-attr]
+        return preset_da_conf(conf_dict)
 
     def _gpu_locale_disponibile(self) -> bool:
         from locallens.core.fabbrica import disponibilita_gpu_locale_da_conf
@@ -340,21 +349,21 @@ class MainWindow(QMainWindow):
             parent=self,
             tema=self.tema_corrente,
             gpu_locale_disponibile=self._gpu_locale_disponibile(),
-            lingua=self.conf.get("lingua", "en"),
+            lingua=self._conf_val("lingua", "en"),
         )
-        dlg.set_sorgente(self.conf.get("sorgente", "bundlato"))
-        dlg.set_lingua(self.conf.get("lingua", "en"))
-        dlg.set_url_esterno(self.conf.get("url_esterno", ""))
-        dlg.set_url_gpu_locale(self.conf.get("url_gpu_locale", self.conf.get("url_esterno", "")))
+        dlg.set_sorgente(self._conf_val("sorgente", "bundlato"))
+        dlg.set_lingua(self._conf_val("lingua", "en"))
+        dlg.set_url_esterno(self._conf_val("url_esterno", ""))
+        dlg.set_url_gpu_locale(self._conf_val("url_gpu_locale", self._conf_val("url_esterno", "")))
         dlg.set_cloud(
-            self.conf.get("token_esterno", ""),
-            self.conf.get("modello_esterno", ""),
-            self.conf.get("prompt_esterno", ""),
+            self._conf_val("token_esterno", ""),
+            self._conf_val("modello_esterno", ""),
+            self._conf_val("prompt_esterno", ""),
         )
         dlg.set_contesto(
-            self.conf.get("lingue_filtro", "it"),
-            int(self.conf.get("soglia_righe_loop", 5)),
-            bool(self.conf.get("ignora_eco", False)),
+            self._conf_val("lingue_filtro", "it"),
+            int(self._conf_val("soglia_righe_loop", "5")),
+            bool(self._conf_val("ignora_eco", False)),
         )
         if dlg.exec():
             self.conf.update(dlg.valori())
@@ -418,8 +427,8 @@ class MainWindow(QMainWindow):
             return avvia_job(
                 None,
                 documento=documento,
-                sorgente=self.conf.get("sorgente", ""),
-                preset_id=self.conf.get("preset_id", ""),
+                sorgente=self._conf_val("sorgente", ""),
+                preset_id=self._conf_val("preset_id", ""),
             )
         except OSError:
             return None
@@ -469,7 +478,7 @@ class MainWindow(QMainWindow):
             self.btn_tutte.hide()
         self.lista.clear()
         lingua = self._lingua()
-        modello_esterno = str(self.conf.get("modello_esterno", "") or "")
+        modello_esterno = str(self._conf_val("modello_esterno", "") or "")
         for e in estrazioni:
             caduta = e.motore_usato == "cpu-tesseract"
             etichetta = etichetta_motore(lingua, e.motore_usato, modello_esterno)
@@ -516,11 +525,11 @@ class MainWindow(QMainWindow):
     def aggiorna_intestazione(self) -> None:
         """Pill motore in linguaggio umano: '● GPU locale • http://...'."""
         lingua = self._lingua()
-        sorgente = self.conf.get("sorgente", "bundlato")
+        sorgente = self._conf_val("sorgente", "bundlato")
         if sorgente == "bundlato":
-            dettaglio = self.conf.get("url_gpu_locale") or self.conf.get("url_esterno", "") or "—"
+            dettaglio = self._conf_val("url_gpu_locale", "") or self._conf_val("url_esterno", "") or "—"
         elif sorgente == "esterno":
-            dettaglio = self.conf.get("modello_esterno", "") or self.conf.get("preset_id", "") or "—"
+            dettaglio = self._conf_val("modello_esterno", "") or self._conf_val("preset_id", "") or "—"
         else:
             dettaglio = t(lingua, "dettaglio_solo_cpu")
         colori = {

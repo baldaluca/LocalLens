@@ -79,3 +79,14 @@ def test_roundtrip_escape_stringhe(tmp_path):
     conf["prompt_esterno"] = 'Trascrici "tutto" esatto \\ test\nseconda riga'
     salva(conf, path=tmp_path / "c.toml")
     assert carica(path=tmp_path / "c.toml")["prompt_esterno"] == conf["prompt_esterno"]
+
+
+def test_config_typed_load(tmp_path):
+    from locallens.config.settings import Config
+
+    p = tmp_path / "c.toml"
+    p.write_text('lingua="en"\nsorgente="esterno"\n', encoding="utf-8")
+    cfg = Config.load(p)
+    assert cfg.lingua == "en"
+    assert cfg.sorgente == "esterno"
+    assert cfg.effective_url() == "http://127.0.0.1:8011"

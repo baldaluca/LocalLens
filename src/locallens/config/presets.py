@@ -50,6 +50,12 @@ def preset_da_conf(conf) -> PresetModello:
     """Preset da conf['preset_id'], con fallback al default shipped."""
     from locallens.config.percorsi import risorsa
 
+    # seam Config: accetta dict o Config
+    if not isinstance(conf, dict):
+        try:
+            conf = conf.to_dict()  # type: ignore[union-attr]
+        except AttributeError:
+            conf = dict(conf)  # type: ignore[arg-type]
     pid = conf.get("preset_id", "") or "lighton-ocr-q8_0"
     try:
         return load_preset(str(risorsa("presets", f"{pid}.toml")))
