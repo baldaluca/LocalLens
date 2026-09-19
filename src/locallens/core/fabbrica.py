@@ -3,28 +3,14 @@
 import sys
 
 from locallens.app.lingua import t
+from locallens.config.settings import as_dict
 from locallens.core.orchestrator import solo_cpu as _solo_cpu_default
 from locallens.core.rete import is_url_privata, resolve_binary, verifica_health
 
 
-def _as_dict(conf) -> dict:
-    """Seam Config: accetta dict o Config typed, normalizza a dict."""
-    if isinstance(conf, dict):
-        return conf
-    if hasattr(conf, "to_dict"):
-        try:
-            return conf.to_dict()  # type: ignore[attr-defined]
-        except Exception:
-            pass
-    try:
-        return dict(conf)  # type: ignore[arg-type]
-    except Exception:
-        return conf  # type: ignore[return-value]
-
-
 def _contesto(conf) -> dict:
     """Contesto filtro anti-self-hit: stringa TOML "it,en" → tupla per crea_engine."""
-    d = _as_dict(conf)
+    d = as_dict(conf)
     lingue = tuple(
         lingua.strip()
         for lingua in str(d.get("lingue_filtro", "it")).split(",")
@@ -66,7 +52,7 @@ def normalizza_sorgente_da_conf(conf, preset, **rileva_kw) -> tuple[dict, str | 
 
 def normalizza_sorgente(conf, info, preset, **rileva_kw) -> tuple[dict, str | None]:
     """Se il config chiede bundlato ma la GPU locale non è rilevata, ripiega su esterno."""
-    d = _as_dict(conf)
+    d = as_dict(conf)
     if d.get("sorgente", "bundlato") == "bundlato" and not disponibilita_gpu_locale(
         info, preset, **rileva_kw
     ):
@@ -79,7 +65,7 @@ def costruisci(conf, info, preset, gestore=None, crea=None, solo_cpu=None, pesi=
     """(engine, stato, banner). Dipendenze iniettabili; default = reali."""
     from locallens.core.orchestrator import crea_engine as _crea
 
-    d = _as_dict(conf)
+    d = as_dict(conf)
     crea = crea or _crea
     verifica = verifica or verifica_health
     sorgente = d.get("sorgente", "bundlato")

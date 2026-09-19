@@ -23,7 +23,7 @@ from locallens.app.impostazioni import DialogoImpostazioni
 from locallens.app.lingua import t
 from locallens.app.tema import NOMI_TEMI, qss
 from locallens.app.worker import OcrWorker
-from locallens.config.settings import Config, salva as salva_impostazioni
+from locallens.config.settings import Config, as_dict, salva as salva_impostazioni
 from locallens.core.orchestrator import Estrazione, OcrEngine
 
 TESTO_VUOTO = (
@@ -202,10 +202,34 @@ class MainWindow(QMainWindow):
         self.applica_lingua()
 
     def _conf_val(self, chiave: str, default: str = "") -> str:
-        """Seam Config: legge da dict o Config."""
+        """Seam Config: legge da dict o Config via helper centralizzato as_dict."""
+        return as_dict(self.conf).get(chiave, default)
+
+    def _conf_set(self, chiave: str, valore) -> None:
+        """Seam Config: scrittura compatibile con dict e Config frozen (via replace)."""
         if isinstance(self.conf, dict):
-            return self.conf.get(chiave, default)  # type: ignore[union-attr]
-        return getattr(self.conf, chiave, default)
+            self.conf[chiave] = valore  # type: ignore[index]
+        else:
+            from dataclasses import fields, replace
+
+            if chiave in {f.name for f in fields(self.conf)}:
+                self.conf = replace(self.conf, **{chiave: valore})  # type: ignore[arg-type]
+            else:
+                d = as_dict(self.conf)
+                d[chiave] = valore
+                self.conf = d  # type: ignore[assignment]
+
+    def _conf_update(self, valori: dict) -> None:
+        """Seam Config: update compatibile con dict e Config frozen (via replace)."""
+        if isinstance(self.conf, dict):
+            self.conf.update(valori)  # type: ignore[union-attr]
+        else:
+            from dataclasses import fields, replace
+
+            cfg_fields = {f.name for f in fields(self.conf)}
+            filtrati = {k: v for k, v in valori.items() if k in cfg_fields}
+            if filtrati:
+                self.conf = replace(self.conf, **filtrati)  # type: ignore[arg-type]
 
     def _lingua(self) -> str:
         return self._conf_val("lingua", "en")
@@ -250,7 +274,7 @@ class MainWindow(QMainWindow):
 
     def cambia_tema(self) -> None:
         self.set_tema("scuro" if self.tema_corrente == "chiaro" else "chiaro")
-        self.conf["tema"] = self.tema_corrente
+        self._conf_set("tema", self.tema_corrente)
         self.aggiorna_intestazione()
         self._ricolora_lista()
 
@@ -276,7 +300,7 @@ class MainWindow(QMainWindow):
 
     def closeEvent(self, evento) -> None:
         """Il token API vive solo in sessione: azzerato alla chiusura."""
-        self.conf["token_esterno"] = ""
+        self._conf_set("token_esterno", "")
         super().closeEvent(evento)
 
     def _richiedi_engine(self) -> OcrEngine | None:
@@ -334,9 +358,7 @@ class MainWindow(QMainWindow):
     def _preset_corrente(self):
         from locallens.config.presets import preset_da_conf
 
-        # seam Config: normalize to dict for preset lookup
-        conf_dict = self.conf if isinstance(self.conf, dict) else self.conf.to_dict()  # type: ignore[union-attr]
-        return preset_da_conf(conf_dict)
+        return preset_da_conf(self.conf)
 
     def _gpu_locale_disponibile(self) -> bool:
         from locallens.core.fabbrica import disponibilita_gpu_locale_da_conf
@@ -366,8 +388,15 @@ class MainWindow(QMainWindow):
             bool(self._conf_val("ignora_eco", False)),
         )
         if dlg.exec():
-            self.conf.update(dlg.valori())
-            self.conf, avviso = normalizza_sorgente_da_conf(self.conf, self._preset_corrente())
+            self._conf_update(dlg.valori())
+            conf_dict = as_dict(self.conf)
+            nuovo_dict, avviso = normalizza_sorgente_da_conf(conf_dict, self._preset_corrente())
+            if isinstance(self.conf, dict):
+                self.conf = nuovo_dict
+            else:
+                from locallens.config.settings import Config
+
+                self.conf = Config.from_dict(nuovo_dict)
             if avviso:
                 self.mostra_banner(avviso)
             salva_impostazioni(self.conf)

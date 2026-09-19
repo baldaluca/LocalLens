@@ -31,6 +31,24 @@ DEFAULTS = {
 SEGRET = ("token_esterno",)
 
 
+def _scrivi_toml(dati: dict, path: Path) -> Path:
+    """Helper DRY per Config.save/salva: serializza TOML con escape e filtro SEGRET."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    righe: list[str] = []
+    for chiave, valore in dati.items():
+        if chiave in SEGRET:
+            continue
+        if isinstance(valore, str):
+            sicura = valore.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n")
+            righe.append(f'{chiave} = "{sicura}"')
+        elif isinstance(valore, bool):
+            righe.append(f"{chiave} = {'true' if valore else 'false'}")
+        else:
+            righe.append(f"{chiave} = {valore}")
+    path.write_text("\n".join(righe) + "\n", encoding="utf-8")
+    return path
+
+
 def percorso_config(
     piattaforma: str | None = None, home: str = "", appdata: str = ""
 ) -> Path:
@@ -85,21 +103,7 @@ class Config:
 
     def save(self, path: Path | None = None) -> Path:
         p = Path(path) if path is not None else percorso_config()
-        p.parent.mkdir(parents=True, exist_ok=True)
-        d = self.to_dict()
-        righe: list[str] = []
-        for chiave, valore in d.items():
-            if chiave in SEGRET:
-                continue
-            if isinstance(valore, str):
-                sicura = valore.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n")
-                righe.append(f'{chiave} = "{sicura}"')
-            elif isinstance(valore, bool):
-                righe.append(f"{chiave} = {'true' if valore else 'false'}")
-            else:
-                righe.append(f"{chiave} = {valore}")
-        p.write_text("\n".join(righe) + "\n", encoding="utf-8")
-        return p
+        return _scrivi_toml(self.to_dict(), p)
 
     def validated(self) -> "Config":
         from locallens.app.lingua import LINGUE
@@ -128,29 +132,26 @@ class Config:
         return cfg.validated()
 
 
+def as_dict(conf: "Config | dict") -> dict:
+    """Seam Config: normalizza dict o Config a dict (single helper)."""
+    if isinstance(conf, dict):
+        return conf
+    if hasattr(conf, "to_dict"):
+        try:
+            return conf.to_dict()  # type: ignore[attr-defined]
+        except Exception:
+            pass
+    try:
+        return dict(conf)  # type: ignore[arg-type]
+    except Exception:
+        return conf  # type: ignore[return-value]
+
+
 def carica(path: Path | None = None) -> dict:
     return Config.load(path).to_dict()
 
 
 def salva(conf: dict | Config, path: Path | None = None) -> Path:
-    # seam Config: accetta dict o Config
-    if not isinstance(conf, dict):
-        try:
-            conf = conf.to_dict()  # type: ignore[union-attr]
-        except AttributeError:
-            conf = dict(conf)  # type: ignore[arg-type]
-    path = path or percorso_config()
-    path.parent.mkdir(parents=True, exist_ok=True)
-    righe = []
-    for chiave, valore in conf.items():
-        if chiave in SEGRET:
-            continue
-        if isinstance(valore, str):
-            sicura = valore.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n")
-            righe.append(f'{chiave} = "{sicura}"')
-        elif isinstance(valore, bool):
-            righe.append(f"{chiave} = {'true' if valore else 'false'}")
-        else:
-            righe.append(f"{chiave} = {valore}")
-    path.write_text("\n".join(righe) + "\n", encoding="utf-8")
-    return path
+    conf_dict = as_dict(conf)
+    p = Path(path) if path is not None else percorso_config()
+    return _scrivi_toml(conf_dict, p)
