@@ -1,6 +1,6 @@
 """Finestra principale. View sottile: delega workflow a DocumentController, solo display."""
 
-from PySide6.QtCore import Qt, QThreadPool, Signal
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import (
     QHBoxLayout,
@@ -22,7 +22,6 @@ from locallens.app.icone import percorso_icona
 from locallens.app.impostazioni import DialogoImpostazioni
 from locallens.app.lingua import SORGENTE_LABELS, t
 from locallens.app.tema import NOMI_TEMI, qss
-from locallens.app.worker import OcrWorker
 from locallens.config.settings import Config, as_dict, salva as salva_impostazioni
 from locallens.core.orchestrator import Estrazione, OcrEngine
 

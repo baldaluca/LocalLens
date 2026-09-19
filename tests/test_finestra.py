@@ -498,10 +498,10 @@ def test_banner_runtime_in_inglese(qapp):
 
 
 def test_avvia_pulisce_lista_pagine_precedenti(qapp, monkeypatch):
-    from locallens.app import finestra as F
+    from locallens.app import controller as C
     from locallens.app.finestra import MainWindow
 
-    monkeypatch.setattr(F.QThreadPool, "globalInstance", lambda: type("P", (), {"start": lambda self, w: None})())
+    monkeypatch.setattr(C.QThreadPool, "globalInstance", lambda: type("P", (), {"start": lambda self, w: None})())
     w = MainWindow()
     w.lista.addItem("Pagina 1 • bundlato • 37 s")
     w.avvia([b"x"], engine=object(), documento="nuovo.pdf")
