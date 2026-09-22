@@ -58,6 +58,9 @@ jobs:
         with:
           path: bins
           key: bins-b10995-${{ runner.os }}-${{ hashFiles('src/locallens/backend/distro.py') }}
+      - name: Qt deps (linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libegl1 libxkbcommon0 libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 libxcb-xinerama0 libxcb-xkb1 libxkbcommon-x11-0
       - name: Fetch binaries (linux)
         if: runner.os == 'Linux'
         run: uv run python tools/fetch-binaries.py --os linux --all
