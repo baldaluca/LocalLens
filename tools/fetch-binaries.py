@@ -24,10 +24,26 @@ def scarica(os: str, backend: str, bins_root: str = "bins", url: str | None = No
     url = url or download_url(os, backend)
     dest = Path(dest_dir(os, backend, bins_root))
     dest.mkdir(parents=True, exist_ok=True)
+    import time
+    import urllib.error
+
     with tempfile.NamedTemporaryFile(suffix=Path(url).suffix, delete=False) as tmp:
-        with urllib.request.urlopen(url, timeout=120) as r, open(tmp.name, "wb") as f:
-            shutil.copyfileobj(r, f)
         archivio = tmp.name
+        for tentativo in range(3):
+            try:
+                with urllib.request.urlopen(url, timeout=120) as r, open(archivio, "wb") as f:
+                    shutil.copyfileobj(r, f)
+                break
+            except urllib.error.HTTPError as e:
+                if e.code >= 500 and tentativo < 2:
+                    time.sleep(2 * (tentativo + 1))
+                    continue
+                raise
+            except OSError:
+                if tentativo < 2:
+                    time.sleep(2 * (tentativo + 1))
+                    continue
+                raise
     if archivio.endswith(".zip"):
         with zipfile.ZipFile(archivio) as z:
             z.extractall(dest)
