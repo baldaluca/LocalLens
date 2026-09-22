@@ -16,7 +16,7 @@ def _cache_root(env=None) -> Path:
         from huggingface_hub.constants import HF_HUB_CACHE as _default
 
         return Path(_default)
-    except Exception:
+    except Exception:  # noqa: BLE001 — optional-dependency fallback, import may fail
         return Path.home() / ".cache" / "huggingface" / "hub"
 
 

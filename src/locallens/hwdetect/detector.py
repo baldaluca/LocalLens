@@ -49,7 +49,7 @@ def rileva_vendor_windows(esegui) -> str:
     ):
         try:
             out = (esegui(cmd) or "").lower()
-        except Exception:
+        except Exception:  # noqa: BLE001, S112 — probe best-effort, esequireporterà None
             continue
         if "nvidia" in out:
             return "nvidia"
