@@ -36,6 +36,30 @@ def decide(
     )
 
 
+def rileva_vendor_windows(esegui) -> str:
+    """Fallback Windows senza lspci: wmic → powershell. Ritorna nvidia|amd|intel|none."""
+    for cmd in (
+        ["wmic", "path", "win32_VideoController", "get", "name"],
+        [
+            "powershell",
+            "-NoProfile",
+            "-Command",
+            "Get-CimInstance Win32_VideoController | Select-Object -ExpandProperty Name",
+        ],
+    ):
+        try:
+            out = (esegui(cmd) or "").lower()
+        except Exception:
+            continue
+        if "nvidia" in out:
+            return "nvidia"
+        if "amd" in out or "radeon" in out:
+            return "amd"
+        if "intel" in out:
+            return "intel"
+    return "none"
+
+
 def detect(
     piattaforma: str | None = None,
     esegui=None,
@@ -78,6 +102,9 @@ def detect(
             vram_mb = int(smi.splitlines()[0].strip().split()[0])
         except (ValueError, IndexError):
             vram_mb = None
+
+    if vendor == "none" and os == "win32":
+        vendor = rileva_vendor_windows(esegui)
 
     if bins_presenti is None:
         bins_presenti = set()

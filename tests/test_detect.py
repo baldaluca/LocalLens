@@ -41,3 +41,45 @@ def test_detect_senza_niente_solo_cpu():
         bins_presenti=set(),
     )
     assert info.candidati == ("cpu",)
+
+
+def test_detect_windows_wmic_nvidia():
+    from locallens.hwdetect.detector import detect
+
+    def esegui(cmd):
+        if cmd[0] == "nvidia-smi":
+            return None
+        if cmd[0] == "wmic":
+            return "Name\nNVIDIA GeForce RTX 4050 Laptop GPU\n"
+        return None
+
+    info = detect(
+        piattaforma="win32",
+        esegui=esegui,
+        lspci=lambda: "",
+        bins_presenti={"cuda", "vulkan", "cpu"},
+    )
+    assert info.gpu_vendor == "nvidia"
+    assert info.candidati[0] == "cuda"
+
+
+def test_detect_windows_powershell_amd():
+    from locallens.hwdetect.detector import detect
+
+    def esegui(cmd):
+        if cmd[0] == "nvidia-smi":
+            return None
+        if cmd[0] == "wmic":
+            return None
+        if cmd[0] == "powershell":
+            return "AMD Radeon Graphics"
+        return None
+
+    info = detect(
+        piattaforma="win32",
+        esegui=esegui,
+        lspci=lambda: "",
+        bins_presenti={"vulkan", "cpu"},
+    )
+    assert info.gpu_vendor == "amd"
+    assert info.candidati == ("vulkan", "cpu")
