@@ -65,3 +65,21 @@ def test_cache_root_rispetta_hf_home(monkeypatch, tmp_path):
     monkeypatch.setenv("HF_HOME", str(tmp_path / "hf"))
     monkeypatch.delenv("HUGGINGFACE_HUB_CACHE", raising=False)
     assert pesi._cache_root() == tmp_path / "hf"
+
+
+def test_cache_root_env_param_iniettabile(tmp_path):
+    from locallens.config import pesi
+
+    root = pesi._cache_root(env={"HF_HOME": str(tmp_path / "custom")})
+    assert root == tmp_path / "custom"
+
+
+def test_cache_root_delega_default_hub(monkeypatch, tmp_path):
+    from locallens.config import pesi
+
+    monkeypatch.delenv("HF_HOME", raising=False)
+    monkeypatch.delenv("HUGGINGFACE_HUB_CACHE", raising=False)
+    import huggingface_hub.constants as hub_const
+
+    monkeypatch.setattr(hub_const, "HF_HUB_CACHE", str(tmp_path / "hub-default"))
+    assert pesi._cache_root() == tmp_path / "hub-default"
