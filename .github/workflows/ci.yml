@@ -1,0 +1,63 @@
+name: ci
+on: [push, pull_request]
+jobs:
+  test:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install uv
+        run: pip install uv
+      - name: Sync
+        run: uv sync
+      - name: Tesseract (linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y tesseract-ocr tesseract-ocr-ita
+      - name: Tesseract (windows)
+        if: runner.os == 'Windows'
+        run: choco install tesseract -y
+      - name: Unit
+        run: uv run pytest -q
+      - name: Ruff
+        run: uv run --with ruff ruff check src tests tools
+      - name: Mypy
+        run: uv run --with mypy mypy src/locallens/
+  package:
+    needs: test
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install uv
+        run: pip install uv
+      - name: Sync
+        run: uv sync
+      - name: Fetch binaries (linux)
+        if: runner.os == 'Linux'
+        run: uv run python tools/fetch-binaries.py --os linux --all
+      - name: Fetch binaries (windows)
+        if: runner.os == 'Windows'
+        run: uv run python tools/fetch-binaries.py --os win32 --all
+      - name: Build
+        run: uv run --with pyinstaller pyinstaller -y locallens.spec
+      - name: Smoke offscreen (linux)
+        if: runner.os == 'Linux'
+        run: QT_QPA_PLATFORM=offscreen timeout 20 ./dist/locallens/locallens
+      - name: Smoke offscreen (windows)
+        if: runner.os == 'Windows'
+        run: $env:QT_QPA_PLATFORM = "offscreen"; Start-Sleep -Seconds 2; ./dist/locallens/locallens.exe
+        timeout-minutes: 2
+      - uses: actions/upload-artifact@v4
+        with:
+          name: locallens-${{ runner.os }}
+          path: dist/locallens/
