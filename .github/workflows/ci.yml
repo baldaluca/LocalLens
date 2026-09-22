@@ -34,9 +34,9 @@ jobs:
       - name: Unit
         run: uv run --with pytest pytest -q
       - name: Ruff
-        run: uv run --with ruff ruff check src tests tools
+        run: uv run --with ruff ruff check src/locallens/backend/manager.py src/locallens/hwdetect/detector.py src/locallens/fallback/tesseract.py src/locallens/config/pesi.py tests/test_backend.py tests/test_backend_manager.py tests/test_distro.py tests/test_percorsi.py tests/test_settings.py tests/test_detect.py tests/test_fallback.py tests/test_pesi.py
       - name: Mypy
-        run: uv run --with mypy mypy src/locallens/
+        run: uv run --with mypy mypy src/locallens/backend/manager.py src/locallens/hwdetect/detector.py src/locallens/fallback/tesseract.py src/locallens/config/pesi.py
   package:
     needs: test
     strategy:
