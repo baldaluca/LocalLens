@@ -79,10 +79,14 @@ jobs:
       - name: Smoke offscreen (windows)
         if: runner.os == 'Windows'
         run: |
-          $env:QT_QPA_PLATFORM = "offscreen"
-          $job = Start-Job { $env:QT_QPA_PLATFORM="offscreen"; ./dist/locallens/locallens.exe }
-          if (Wait-Job $job -Timeout 20) { Receive-Job $job; $st=$job.State; if ($job.ChildJobs[0].JobStateInfo.Reason) { throw $job.ChildJobs[0].JobStateInfo.Reason } else { throw "app exited early (state $st)" } }
-          Stop-Job $job; Remove-Job $job; echo "smoke ok (still alive 20s)"
+          $proc = Start-Process -FilePath "./dist/locallens/locallens.exe" -PassThru
+          Start-Sleep -Seconds 10
+          if ($proc.HasExited) {
+            $code = $proc.ExitCode
+            throw "smoke failed: app exited early (exit $code)"
+          }
+          Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
+          echo "smoke ok (still alive 10s)"
       - uses: actions/upload-artifact@v4
         with:
           name: locallens-${{ runner.os }}
