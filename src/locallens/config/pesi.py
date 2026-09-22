@@ -7,11 +7,17 @@ from pathlib import Path
 from locallens.config.presets import PresetModello
 
 
-def _cache_root() -> Path:
-    override = os.environ.get("HF_HOME") or os.environ.get("HUGGINGFACE_HUB_CACHE")
+def _cache_root(env=None) -> Path:
+    Ambiente = env if env is not None else os.environ
+    override = Ambiente.get("HF_HOME") or Ambiente.get("HUGGINGFACE_HUB_CACHE")
     if override:
         return Path(override)
-    return Path.home() / ".cache" / "huggingface" / "hub"
+    try:
+        from huggingface_hub.constants import HF_HUB_CACHE as _default
+
+        return Path(_default)
+    except Exception:
+        return Path.home() / ".cache" / "huggingface" / "hub"
 
 
 def snapshot_completo(preset: PresetModello, cache_root: Path | None = None) -> Path | None:

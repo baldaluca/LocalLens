@@ -57,3 +57,11 @@ def test_risolvi_scarica_se_manca(tmp_path):
 def test_risolvi_senza_download_sollevato(tmp_path):
     with pytest.raises(FileNotFoundError):
         risolvi_pesi(load_preset("presets/glm-ocr-q8_0.toml"), cache_root=tmp_path)
+
+
+def test_cache_root_rispetta_hf_home(monkeypatch, tmp_path):
+    from locallens.config import pesi
+
+    monkeypatch.setenv("HF_HOME", str(tmp_path / "hf"))
+    monkeypatch.delenv("HUGGINGFACE_HUB_CACHE", raising=False)
+    assert pesi._cache_root() == tmp_path / "hf"
