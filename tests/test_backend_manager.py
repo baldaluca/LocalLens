@@ -188,3 +188,47 @@ def test_health_ko_riusa_proc_senza_zombie(monkeypatch):
         mgr.start("cuda")
     assert creati and creati[0].terminated and creati[0].waited
     assert getattr(mgr, "_proc", None) is None
+
+
+def test_uccidi_windows_usa_taskkill():
+    from locallens.backend.manager import uccidi_processo
+
+    chiamate = []
+    uccidi_processo(4242, piattaforma="win32", esegui=lambda cmd: chiamate.append(cmd))
+    assert chiamate == [["taskkill", "/PID", "4242", "/F"]]
+
+
+def test_lancio_win32_nasconde_console_e_usa_exe(monkeypatch):
+    import subprocess
+
+    from locallens.backend.manager import BackendManager
+
+    chiamate = {}
+
+    class ProcFinto:
+        pid = 9999
+
+        def __init__(self, cmd, **kw):
+            chiamate["cmd"] = cmd
+            chiamate.update(kw)
+
+        def terminate(self):
+            pass
+
+        def wait(self, timeout=None):
+            return 0
+
+    monkeypatch.setattr(subprocess, "Popen", ProcFinto)
+    mgr = BackendManager(
+        platform="win32",
+        bins_root="bins",
+        esiste=lambda p: True,
+        porte_occupate=lambda: set(),
+        verifica=lambda url: True,
+    )
+    h = mgr.start("cpu")
+    assert "llama-server.exe" in chiamate["cmd"][0]
+    assert h.pid == 9999
+    assert chiamate.get("creationflags", 0) == getattr(subprocess, "CREATE_NO_WINDOW", 0)
+    assert chiamate.get("creationflags", 0) != 0 or hasattr(subprocess, "CREATE_NO_WINDOW") is False
+    mgr.stop()

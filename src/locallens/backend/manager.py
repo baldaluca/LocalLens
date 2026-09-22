@@ -1,4 +1,6 @@
 """Avvio/supervisione llama-server bundlato come subprocess."""
+import contextlib
+import signal
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -31,6 +33,23 @@ def trova_porta_libera(partenza: int = 8011, occupate: set[int] | None = None) -
     raise OSError("nessuna porta libera in 8011-8020")
 
 
+def uccidi_processo(pid: int, piattaforma: str = "linux", esegui=None) -> None:
+    """Kill cross-platform. win32 → taskkill, altrimenti SIGTERM. Mai eccezioni."""
+    if piattaforma == "win32":
+        def _run(cmd: list[str]) -> None:
+            import subprocess
+
+            with contextlib.suppress(Exception):
+                subprocess.run(cmd, capture_output=True, timeout=10, check=False)
+
+        (esegui or _run)(["taskkill", "/PID", str(pid), "/F"])
+        return
+    with contextlib.suppress(OSError):
+        import os
+
+        os.kill(pid, signal.SIGTERM)
+
+
 class BackendManager:
     """Gestisce il subprocess llama-server. Dipendenze iniettabili per i test."""
 
@@ -45,7 +64,6 @@ class BackendManager:
         uccidi=None,
     ) -> None:
         import socket
-        import subprocess
         from collections.abc import (
             Callable,  # noqa: F401 (import locale, niente dipendenze extra)
         )
@@ -67,12 +85,22 @@ class BackendManager:
                         occ.add(porta)
             return occ
 
+        _piattaforma = platform
+
         def _lancia(cmd: list[str]) -> int:
+            import subprocess
+
+            extra: dict = {}
+            if _piattaforma == "win32":
+                flag = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+                if flag:
+                    extra["creationflags"] = flag
             proc = subprocess.Popen(
                 cmd,
                 stdin=subprocess.DEVNULL,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
+                **extra,
             )
             self._proc = proc
             return proc.pid
@@ -81,14 +109,7 @@ class BackendManager:
             return verifica_health(url)
 
         def _uccidi(pid: int) -> None:
-            import signal
-
-            try:
-                import os
-
-                os.kill(pid, signal.SIGTERM)
-            except OSError:
-                pass
+            uccidi_processo(pid, _piattaforma)
 
         self._esiste = esiste or _esiste
         self._porte_occupate = porte_occupate or _occupate
