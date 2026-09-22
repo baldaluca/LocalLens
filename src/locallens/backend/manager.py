@@ -42,7 +42,8 @@ def uccidi_processo(pid: int, piattaforma: str = "linux", esegui=None) -> None:
             with contextlib.suppress(Exception):
                 subprocess.run(cmd, capture_output=True, timeout=10, check=False)
 
-        (esegui or _run)(["taskkill", "/PID", str(pid), "/F"])
+        with contextlib.suppress(Exception):  # noqa: BLE001, RUF100 — injected esegui may raise
+            (esegui or _run)(["taskkill", "/PID", str(pid), "/F"])
         return
     with contextlib.suppress(OSError):
         import os
@@ -169,6 +170,7 @@ class BackendManager:
                     proc.kill()
                 proc.wait(timeout=5)
 
+    # keep _finalizza_proc(terminate/wait) for registered Popen; taskkill only for orphan pid — matches spec §1.1 intent
     def stop(self) -> None:
         if self._proc is not None:
             self._finalizza_proc()

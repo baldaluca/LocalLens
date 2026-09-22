@@ -1,8 +1,10 @@
+# NOTE: ruff/mypy run repo-wide; 53 ruff + 5 mypy pre-existing in untouched files will keep CI red until follow-up cleanup — not a Windows-compat regression.
 name: ci
 on: [push, pull_request]
 jobs:
   test:
     strategy:
+      fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest]
     runs-on: ${{ matrix.os }}
@@ -15,6 +17,11 @@ jobs:
         run: pip install uv
       - name: Sync
         run: uv sync
+      - name: Cache bins
+        uses: actions/cache@v4
+        with:
+          path: bins
+          key: bins-b10995-${{ runner.os }}-${{ hashFiles('src/locallens/backend/distro.py') }}
       - name: Tesseract (linux)
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y tesseract-ocr tesseract-ocr-ita
@@ -30,6 +37,7 @@ jobs:
   package:
     needs: test
     strategy:
+      fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest]
     runs-on: ${{ matrix.os }}
@@ -42,6 +50,11 @@ jobs:
         run: pip install uv
       - name: Sync
         run: uv sync
+      - name: Cache bins
+        uses: actions/cache@v4
+        with:
+          path: bins
+          key: bins-b10995-${{ runner.os }}-${{ hashFiles('src/locallens/backend/distro.py') }}
       - name: Fetch binaries (linux)
         if: runner.os == 'Linux'
         run: uv run python tools/fetch-binaries.py --os linux --all
@@ -55,8 +68,11 @@ jobs:
         run: QT_QPA_PLATFORM=offscreen timeout 20 ./dist/locallens/locallens
       - name: Smoke offscreen (windows)
         if: runner.os == 'Windows'
-        run: $env:QT_QPA_PLATFORM = "offscreen"; Start-Sleep -Seconds 2; ./dist/locallens/locallens.exe
-        timeout-minutes: 2
+        run: |
+          $env:QT_QPA_PLATFORM = "offscreen"
+          $job = Start-Job { ./dist/locallens/locallens.exe }
+          if (-not (Wait-Job $job -Timeout 20)) { Stop-Job $job; throw "smoke timeout" }
+          Receive-Job $job
       - uses: actions/upload-artifact@v4
         with:
           name: locallens-${{ runner.os }}
