@@ -63,3 +63,22 @@ def test_live_immagine_gold():
         testo = estrai(f.read())
     assert "LocalLens" in testo
     assert "1234567890" in testo
+
+
+def test_trova_tesseract_program_files(monkeypatch):
+    from locallens.fallback import tesseract as tess
+
+    monkeypatch.setattr(tess.shutil, "which", lambda _: None)
+    monkeypatch.setenv("TESSERACT_CMD", "")
+    monkeypatch.setattr(
+        tess.Path, "is_file", lambda self: str(self).endswith("tesseract.exe")
+    )
+    trovato = tess.trova_tesseract()
+    assert trovato is not None and str(trovato).endswith("tesseract.exe")
+
+
+def test_trova_tesseract_env_vince(monkeypatch):
+    from locallens.fallback import tesseract as tess
+
+    monkeypatch.setenv("TESSERACT_CMD", r"D:\tools\tesseract.exe")
+    assert tess.trova_tesseract() == r"D:\tools\tesseract.exe"
