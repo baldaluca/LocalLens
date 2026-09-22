@@ -13,12 +13,12 @@ def test_default():
 
 def test_percorso_linux():
     p = percorso_config(piattaforma="linux", home="/home/u", appdata="")
-    assert str(p) == "/home/u/.config/locallens/config.toml"
+    assert p.as_posix() == "/home/u/.config/locallens/config.toml"
 
 
 def test_percorso_win():
     p = percorso_config(piattaforma="win32", home="", appdata="C:/A")
-    assert str(p) == "C:/A/LocalLens/config.toml"
+    assert p.as_posix() == "C:/A/LocalLens/config.toml"
 
 
 def test_roundtrip(tmp_path):

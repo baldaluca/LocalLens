@@ -6,12 +6,12 @@ from locallens.core.rete import is_url_privata, resolve_binary
 
 def test_resolve_binary_linux_cuda():
     p = resolve_binary(platform="linux", backend_gpu="cuda", bins_root="bins")
-    assert str(p).endswith("bins/linux/cuda/llama-server")
+    assert p.as_posix().endswith("bins/linux/cuda/llama-server")
 
 
 def test_resolve_binary_win_exe():
     p = resolve_binary(platform="win32", backend_gpu="vulkan", bins_root="bins")
-    assert str(p).endswith("bins/win32/vulkan/llama-server.exe")
+    assert p.as_posix().endswith("bins/win32/vulkan/llama-server.exe")
 
 
 def test_trova_porta_libera_saluta_occupata():

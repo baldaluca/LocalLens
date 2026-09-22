@@ -30,7 +30,7 @@ def test_url_e_dest():
     url = download_url("linux", "cpu")
     assert url.startswith("https://github.com/ggml-org/llama.cpp/releases/download/b10995/")
     assert url.endswith(".tar.gz")
-    assert str(dest_dir("linux", "cpu")) == "bins/linux/cpu"
+    assert dest_dir("linux", "cpu").as_posix() == "bins/linux/cpu"
 
 
 def test_matrice_v1_copre_requisiti():

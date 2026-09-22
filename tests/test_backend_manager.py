@@ -28,7 +28,7 @@ def test_start_ok_sceglie_porta_libera():
     assert h.base_url == "http://127.0.0.1:8012"
     assert h.backend_gpu == "cuda"
     assert h.pid == 4242
-    assert "bins/linux/cuda/llama-server" in lanci[0][0]
+    assert "bins/linux/cuda/llama-server" in lanci[0][0].replace("\\", "/")
 
 
 def test_start_con_preset_usa_argv_reali():

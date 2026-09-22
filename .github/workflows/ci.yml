@@ -25,6 +25,9 @@ jobs:
       - name: Tesseract (linux)
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y tesseract-ocr tesseract-ocr-ita
+      - name: Qt deps (linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get install -y libegl1 libxkbcommon0 libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 libxcb-xinerama0 libxcb-xkb1 libxkbcommon-x11-0
       - name: Tesseract (windows)
         if: runner.os == 'Windows'
         run: choco install tesseract -y
