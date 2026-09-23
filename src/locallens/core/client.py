@@ -170,5 +170,10 @@ class HttpInferAdapter:
         modello_id = preset.id if preset else self.modello
         max_tok = preset.max_tokens if preset else self.max_tokens
         payload = build_chat_payload(base64.b64encode(pronta).decode(), prompt_local, modello_id, max_tokens=max_tok)
-        endpoint = self.base_url.rstrip("/") + "/v1/chat/completions"
+        base = self.base_url.rstrip("/")
+        # Evita doppio /v1/chat/completions se l'utente ha già messo l'endpoint completo
+        if base.endswith("/v1/chat/completions"):
+            endpoint = base
+        else:
+            endpoint = base + "/v1/chat/completions"
         return invia_chat(endpoint, payload, post=self.post, timeout=self.timeout), self.motore
