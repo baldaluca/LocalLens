@@ -23,7 +23,35 @@ STRINGS: dict[str, dict[str, str]] = {
         "banner_errore": "Errore: {dettaglio}",
         "banner_appunti_vuoti": "Appunti vuoti: nessuna immagine.",
         "banner_fallback_cpu": "Pagina {id} elaborata via CPU (fallback)",
+        "banner_fallback_cpu_motivo": "Pagina {id} elaborata via CPU (fallback): {motivo}",
         "banner_annullamento": "Annullamento richiesto: finisco la Pagina corrente.",
+        "fallback_motivo_auth": "Autenticazione fallita ({codice}): verifica il Token API nelle Impostazioni",
+        "fallback_motivo_quota": "Limite chiave superato (403): gestisci la quota su openrouter.ai/keys",
+        "fallback_motivo_rate": "Troppe richieste (429): il servizio esterno è sovraccarico, riprova tra poco",
+        "fallback_motivo_bad_request": "Richiesta non valida (400): il server esterno non ha compreso il formato",
+        "fallback_motivo_server": "Errore del server esterno ({codice}): riprova più tardi",
+        "fallback_motivo_timeout": "Timeout: il server esterno non risponde",
+        "fallback_motivo_conn": "Server non raggiungibile: verifica l'URL e che il server sia avviato",
+        "fallback_motivo_vuoto": "Nessun testo estratto dal modello",
+        "fallback_motivo_modello": "Modello non trovato: verifica il nome del modello nelle Impostazioni",
+        "fallback_motivo_generico": "Errore del modello: {dettaglio}",
+        "motivo_anomalia_eco": "output anomalo: eco del prompt",
+        "motivo_anomalia_escape": "output anomalo: escape eccessivi",
+        "motivo_anomalia_loop": "output anomalo: ripetizione in loop",
+        "motivo_anomalia_loop_parola": "output anomalo: ripetizione in loop (parola dominante)",
+        "motivo_anomalia_loop_frasi": "output anomalo: ripetizione in loop (frasi uguali)",
+        "motivo_anomalia_senza_contenuto": "output anomalo: testo senza contenuto",
+        "motivo_anomalia_compressione": "output anomalo: compressione anomala (loop)",
+        "motivo_anomalia_lingua": "output anomalo: lingua inattesa",
+        "motivo_anomalia_meta": "output anomalo: meta-discorso ({dettaglio})",
+        "motivo_segnale_debole": "segnale debole ({dettaglio})",
+        "motivo_anomalia_troncamento": "output anomalo: troncamento (finale monco)",
+        "motivo_anomalia_simboli": "output anomalo: simboli inattesi",
+        "motivo_output_vuoto": "output vuoto/anomalo",
+        "motivo_fail_fast": "fail-fast (senza retry)",
+        "motivo_sorgente_nessuno": "sorgente=nessuno",
+        "motivo_fallback_vuoto": "fallback vuoto",
+        "motivo_fallback_debole": "fallback debole ({n} char)",
         "elaborazione_in_corso": "Elaborazione in corso…",
         "dialogo_apri_titolo": "Apri immagine o PDF",
         "dialogo_apri_filtro": "Documenti (*.png *.jpg *.jpeg *.pdf)",
@@ -98,7 +126,35 @@ STRINGS: dict[str, dict[str, str]] = {
         "banner_errore": "Error: {dettaglio}",
         "banner_appunti_vuoti": "Clipboard empty: no image.",
         "banner_fallback_cpu": "Page {id} processed via CPU (fallback)",
+        "banner_fallback_cpu_motivo": "Page {id} processed via CPU (fallback): {motivo}",
         "banner_annullamento": "Cancellation requested: finishing the current Page.",
+        "fallback_motivo_auth": "Authentication failed ({codice}): check your API token in Settings",
+        "fallback_motivo_quota": "Key limit exceeded (403): manage your quota at openrouter.ai/keys",
+        "fallback_motivo_rate": "Too many requests (429): external service is busy, try again shortly",
+        "fallback_motivo_bad_request": "Bad request (400): external server could not understand the format",
+        "fallback_motivo_server": "External server error ({codice}): try again later",
+        "fallback_motivo_timeout": "Timeout: external server not responding",
+        "fallback_motivo_conn": "Server unreachable: check the URL and that the server is running",
+        "fallback_motivo_vuoto": "No text extracted from model",
+        "fallback_motivo_modello": "Model not found: check the model name in Settings",
+        "fallback_motivo_generico": "Model error: {dettaglio}",
+        "motivo_anomalia_eco": "anomalous output: prompt echo",
+        "motivo_anomalia_escape": "anomalous output: excessive escapes",
+        "motivo_anomalia_loop": "anomalous output: loop repetition",
+        "motivo_anomalia_loop_parola": "anomalous output: loop repetition (dominant word)",
+        "motivo_anomalia_loop_frasi": "anomalous output: loop repetition (identical sentences)",
+        "motivo_anomalia_senza_contenuto": "anomalous output: empty content",
+        "motivo_anomalia_compressione": "anomalous output: anomalous compression (loop)",
+        "motivo_anomalia_lingua": "anomalous output: unexpected language",
+        "motivo_anomalia_meta": "anomalous output: meta-discourse ({dettaglio})",
+        "motivo_segnale_debole": "weak signal ({dettaglio})",
+        "motivo_anomalia_troncamento": "anomalous output: truncation (incomplete ending)",
+        "motivo_anomalia_simboli": "anomalous output: unexpected symbols",
+        "motivo_output_vuoto": "empty/anomalous output",
+        "motivo_fail_fast": "fail-fast (no retry)",
+        "motivo_sorgente_nessuno": "source=none",
+        "motivo_fallback_vuoto": "empty fallback",
+        "motivo_fallback_debole": "weak fallback ({n} chars)",
         "elaborazione_in_corso": "Processing…",
         "dialogo_apri_titolo": "Open image or PDF",
         "dialogo_apri_filtro": "Documents (*.png *.jpg *.jpeg *.pdf)",
@@ -176,7 +232,35 @@ Chiave = Literal[
     "banner_errore",
     "banner_appunti_vuoti",
     "banner_fallback_cpu",
+    "banner_fallback_cpu_motivo",
     "banner_annullamento",
+    "fallback_motivo_auth",
+    "fallback_motivo_rate",
+    "fallback_motivo_bad_request",
+    "fallback_motivo_server",
+    "fallback_motivo_timeout",
+    "fallback_motivo_conn",
+    "fallback_motivo_vuoto",
+    "fallback_motivo_modello",
+    "fallback_motivo_quota",
+    "fallback_motivo_generico",
+    "motivo_anomalia_eco",
+    "motivo_anomalia_escape",
+    "motivo_anomalia_loop",
+    "motivo_anomalia_loop_parola",
+    "motivo_anomalia_loop_frasi",
+    "motivo_anomalia_senza_contenuto",
+    "motivo_anomalia_compressione",
+    "motivo_anomalia_lingua",
+    "motivo_anomalia_meta",
+    "motivo_segnale_debole",
+    "motivo_anomalia_troncamento",
+    "motivo_anomalia_simboli",
+    "motivo_output_vuoto",
+    "motivo_fail_fast",
+    "motivo_sorgente_nessuno",
+    "motivo_fallback_vuoto",
+    "motivo_fallback_debole",
     "elaborazione_in_corso",
     "dialogo_apri_titolo",
     "dialogo_apri_filtro",
@@ -265,3 +349,53 @@ class LinguaService:
 def t(lingua: str, chiave: str, **fmt) -> str:
     """Compat shim: delega a LinguaService (fondamenta lingua applicazione)."""
     return LinguaService(lingua).t(chiave, **fmt)  # type: ignore[arg-type]
+
+
+def traduce_motivo(lingua: str, motivo: str) -> str:
+    """Traduce la nota/motivo pipeline (sempre IT raw) nella lingua UI."""
+    if not motivo or lingua == "it":
+        return motivo
+    import re
+
+    # mappa IT raw -> chiave catalogo (con eventuale estrazione param)
+    # ordine: pattern più specifici prima
+    frammenti = [f.strip() for f in motivo.split(";") if f.strip()]
+    tradotti: list[str] = []
+    for frag in frammenti:
+        low = frag.strip()
+        # fallback per "output vuoto/anomalo" ecc. mappiamo exact
+        mappa_esatta = {
+            "output anomalo: eco del prompt": "motivo_anomalia_eco",
+            "output anomalo: escape eccessivi": "motivo_anomalia_escape",
+            "output anomalo: ripetizione in loop": "motivo_anomalia_loop",
+            "output anomalo: ripetizione in loop (parola dominante)": "motivo_anomalia_loop_parola",
+            "output anomalo: ripetizione in loop (frasi uguali)": "motivo_anomalia_loop_frasi",
+            "output anomalo: testo senza contenuto": "motivo_anomalia_senza_contenuto",
+            "output anomalo: compressione anomala (loop)": "motivo_anomalia_compressione",
+            "output anomalo: lingua inattesa": "motivo_anomalia_lingua",
+            "output anomalo: troncamento (finale monco)": "motivo_anomalia_troncamento",
+            "output anomalo: simboli inattesi": "motivo_anomalia_simboli",
+            "output vuoto/anomalo": "motivo_output_vuoto",
+            "fail-fast (senza retry)": "motivo_fail_fast",
+            "sorgente=nessuno": "motivo_sorgente_nessuno",
+            "fallback vuoto": "motivo_fallback_vuoto",
+        }
+        if low in mappa_esatta:
+            tradotti.append(t(lingua, mappa_esatta[low]))
+            continue
+        # param: meta-discorso
+        m = re.match(r"^output anomalo: meta-discorso \((.*)\)$", low)
+        if m:
+            tradotti.append(t(lingua, "motivo_anomalia_meta", dettaglio=m.group(1)))
+            continue
+        m = re.match(r"^segnale debole \((.*)\)$", low)
+        if m:
+            tradotti.append(t(lingua, "motivo_segnale_debole", dettaglio=m.group(1)))
+            continue
+        m = re.match(r"^fallback debole \((\d+) char\)$", low)
+        if m:
+            tradotti.append(t(lingua, "motivo_fallback_debole", n=m.group(1)))
+            continue
+        # non riconosciuto (es. "backend giu", "HTTP 500:...") → lascia com'è
+        tradotti.append(frag)
+    return "; ".join(tradotti)

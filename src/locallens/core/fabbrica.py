@@ -106,7 +106,7 @@ def costruisci(conf, info, preset, gestore=None, crea=None, solo_cpu=None, pesi=
             contrasto=d.get("contrasto", False),
             **_contesto(d),
         )
-        return engine, f"esterno • {url}", banner
+        return engine, t(lingua, "stato_esterno", url=url), banner
 
     if sorgente == "nessuno":
         if solo_cpu is None:
@@ -232,7 +232,7 @@ class EngineFactory:
             engine = OcrEngine(
                 infer=infer, fallback=fallback_fn, sorgente="esterno", **_contesto(d)
             )
-            return engine, f"esterno • {url}", banner
+            return engine, t(lingua, "stato_esterno", url=url), banner
 
         if sorgente == "nessuno":
             banner = avviso or ""

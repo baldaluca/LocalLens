@@ -20,7 +20,7 @@ from PySide6.QtWidgets import (
 
 from locallens.app.icone import percorso_icona
 from locallens.app.impostazioni import DialogoImpostazioni
-from locallens.app.lingua import SORGENTE_LABELS, t
+from locallens.app.lingua import SORGENTE_LABELS, t, traduce_motivo
 from locallens.app.tema import NOMI_TEMI, qss
 from locallens.config.settings import Config, as_dict, salva as salva_impostazioni
 from locallens.core.orchestrator import Estrazione, OcrEngine
@@ -71,6 +71,69 @@ def etichetta_motore(lingua: str, motore_usato: str, modello_esterno: str = "") 
     return motore_usato
 
 
+def motivo_naturale(lingua: str, motivo: str) -> str:
+    """Riporta il messaggio di errore del log senza JSON, senza inventare nulla."""
+    if not motivo:
+        return motivo
+    m = motivo.strip()
+    low = m.lower()
+    # già naturale (anomalia, fallback debole/vuoto) → lascia com'è
+    if low.startswith("output anomalo") or low.startswith("fallback"):
+        return m
+    import json as _json
+    import re as _re
+
+    # estrai messaggio dal JSON se presente ({"message": "..."} / {"error": {"message": "..."}} / {"error": "..."})
+    j: dict | None = None
+    if "{" in m and "}" in m:
+        try:
+            start = m.index("{")
+            end = m.rindex("}") + 1
+            parsed = _json.loads(m[start:end])
+            # OpenRouter annida: {"error": {"message": "...", "code": 403}}
+            if isinstance(parsed, dict) and isinstance(parsed.get("error"), dict):
+                j = parsed["error"]
+            elif isinstance(parsed, dict):
+                j = parsed
+        except Exception:
+            j = None
+    dettaglio = ""
+    if isinstance(j, dict):
+        # prova message, poi error come stringa
+        raw = j.get("message")
+        if isinstance(raw, str) and raw.strip():
+            dettaglio = raw.strip()
+        elif isinstance(j.get("error"), str) and j["error"].strip():
+            dettaglio = j["error"].strip()
+        elif isinstance(raw, dict):
+            dettaglio = str(raw.get("message") or raw.get("error") or "").strip()
+        if not dettaglio:
+            # fallback su message/error annidati generici
+            dettaglio = str(j.get("message") or j.get("error") or "").strip()
+            if isinstance(dettaglio, str) and dettaglio.startswith("{"):
+                dettaglio = ""
+    if dettaglio:
+        # ritorna solo il messaggio estratto, senza JSON né "HTTP xxx:"
+        # se c'era un codice HTTP, prefixalo in modo leggibile ma fedele al log
+        code_m = _re.search(r"HTTP\s+(\d{3})", m)
+        if code_m:
+            return f"HTTP {code_m.group(1)}: {dettaglio}"[:400]
+        return dettaglio[:400]
+    # nessun JSON estraibile → ripulisci solo le graffe residue, non inventare
+    if "{" in m and "}" in m:
+        pulito = _re.sub(r"\s*\{.*\}\s*", "", m).strip()
+        if pulito:
+            return pulito[:400]
+    # HTTP code
+    code_m = _re.search(r"HTTP\s+(\d{3})", m)
+    code = code_m.group(1) if code_m else ""
+    # nessun JSON con message estraibile → ripulisci solo graffe, non inventare
+    pulito = _re.sub(r"\s*\{.*\}\s*", "", m).strip()
+    if pulito:
+        return pulito[:400]
+    return m[:400]
+
+
 def _icona(nome_tema: str, standard: QStyle.StandardPixmap, widget) -> QIcon:
     icona = QIcon.fromTheme(nome_tema)
     if icona.isNull():
@@ -99,7 +162,15 @@ class MainWindow(QMainWindow):
         self.banner = QLabel()
         self.banner.setObjectName("banner")
         self.banner.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum)
+        self.banner.setWordWrap(True)
+        self.banner.setTextInteractionFlags(
+            Qt.TextInteractionFlag.TextSelectableByMouse | Qt.TextInteractionFlag.TextSelectableByKeyboard
+        )
+        self.banner.setCursor(Qt.CursorShape.IBeamCursor)
         self.banner.hide()
+        self._banner_chiave: str | None = None
+        self._banner_kwargs: dict = {}
+        self._banner_raw: str | None = None
         layout.addWidget(self.banner)
         self.tema_corrente = "chiaro"
         self.setStyleSheet(qss(self.tema_corrente))
@@ -268,22 +339,30 @@ class MainWindow(QMainWindow):
     def _on_controller_errore(self, job_id: str, messaggio: str) -> None:
         self.progress.hide()
         self.btn_annulla.setEnabled(False)
-        self.mostra_banner(t(self._lingua(), "banner_errore", dettaglio=messaggio))
+        self._mostra_banner_chiave("banner_errore", dettaglio=messaggio)
         self._aggiorna_bottoni()
 
     def _handle_settings_accepted(self, valori: dict) -> None:
         if hasattr(self, "controller"):
             stato, banner, avviso = self.controller.apply_settings(valori)
             self._sync_view_conf_from_controller()
-            if avviso:
-                self.mostra_banner(avviso)
+            sorgente = self._conf_val("sorgente", "bundlato")
+            has_fallback = any(
+                getattr(e, "motore_usato", "") == "cpu-tesseract" for e in getattr(self, "_correnti", [])
+            )
+            preserve_fallback = has_fallback and sorgente != "nessuno"
+            # applica_lingua ritraduce fallback/bottoni; fallback ha priorità su banner/avviso engine
             self.applica_lingua()
             self.aggiorna_intestazione()
             self.set_engine(self.controller.engine)
             self.set_stato(stato)
-            if banner and not avviso:
+            if preserve_fallback:
+                return  # fallback già mostrato da applica_lingua, non sovrascrivere con privacy/avviso
+            if avviso:
+                self.mostra_banner(avviso)
+            elif banner:
                 self.mostra_banner(banner)
-            elif not banner and not avviso:
+            else:
                 self.nascondi_banner()
 
     def _conf_val(self, chiave: str, default: str = "") -> str:
@@ -322,6 +401,106 @@ class MainWindow(QMainWindow):
     def _lingua(self) -> str:
         return self._conf_val("lingua", "en")
 
+    def _mostra_banner_chiave(self, chiave: str, **kwargs) -> None:
+        """Helper tracked: banner ritraducibile su cambio lingua."""
+        self._banner_chiave = chiave
+        self._banner_kwargs = dict(kwargs)
+        self._banner_raw = None
+        self.mostra_banner(t(self._lingua(), chiave, **kwargs))
+
+    def _ritraduci_banner_se_visibile(self, lingua: str) -> None:
+        """Ritraduce il banner visibile dopo un cambio lingua."""
+        if self.banner.isHidden():
+            return
+        # fallback banner già ritradotto da mostra_estrazioni → non sovrascrivere
+        has_fallback = any(
+            getattr(e, "motore_usato", "") == "cpu-tesseract" for e in getattr(self, "_correnti", [])
+        ) and self._conf_val("sorgente", "bundlato") != "nessuno"
+        if has_fallback and self._correnti:
+            return
+        if self._banner_chiave is not None:
+            try:
+                kwargs = dict(self._banner_kwargs)
+                # per fallback, motivo può essere stato memorizzato in lingua vecchia → ritraduci
+                if self._banner_chiave == "banner_fallback_cpu_motivo" and "motivo" in kwargs and lingua != "it":
+                    from locallens.app.lingua import traduce_motivo as _tr_mot
+                    # il motivo memorizzato è già tradotto o raw IT; ritraduci da raw se possibile
+                    # se è già EN, traduce_motivo con IT→EN su IT raw, EN→EN resta; quindi ricalcola da nota originale se disponibile
+                    # fallback: usa traduci se contiene italiano
+                    kwargs["motivo"] = _tr_mot(lingua, kwargs["motivo"])
+                self.banner.setText(t(lingua, self._banner_chiave, **kwargs))
+                return
+            except Exception:
+                pass
+        # raw banner (factory/composite): tentativo di reverse-lookup
+        raw = self._banner_raw or self.banner.text()
+        if raw:
+            tradotto = self._traduce_raw_banner(raw, lingua)
+            if tradotto and tradotto != raw:
+                self.banner.setText(tradotto)
+                self._banner_raw = tradotto
+
+    def _traduce_raw_banner(self, testo: str, lingua: str) -> str | None:
+        """Tenta di ritradurre un banner raw già localizzato (es. engine/bundlato)."""
+        from locallens.app.lingua import STRINGS, traduce_motivo
+        import re
+
+        # banner composti "a; b" → ritraduci ogni segmento
+        parti = [p.strip() for p in testo.split(";") if p.strip()]
+        if not parti:
+            return None
+        tradotte: list[str] = []
+        for parte in parti:
+            trovata = False
+            # cerca tra tutte le chiavi banner/stato/motivo che potrebbero apparire come banner
+            for chiave in STRINGS.get("it", {}):
+                if not (
+                    chiave.startswith("banner_")
+                    or chiave.startswith("stato_")
+                    or chiave.startswith("avviso_")
+                    or chiave in (
+                        "motivo_gpu_non_raggiungibile",
+                        "motivo_solo_tesseract",
+                        "motivo_esterno_manca_modello",
+                        "motivo_esterno_manca_token",
+                        "motivo_esterno_manca_modello_token",
+                    )
+                ):
+                    continue
+                for src_lingua in ("it", "en"):
+                    tmpl = STRINGS.get(src_lingua, {}).get(chiave)
+                    if not tmpl:
+                        continue
+                    esc = re.escape(tmpl)
+                    esc = re.sub(r"\\\{[^}]+\\\}", "(.*)", esc)
+                    m = re.match(f"^{esc}$", parte)
+                    if m:
+                        placeholders = re.findall(r"\{(\w+)\}", tmpl)
+                        kwargs = {}
+                        for i, ph in enumerate(placeholders):
+                            try:
+                                val = m.group(i + 1)
+                                # per fallback motivo, traduci il dettaglio motivo
+                                if chiave == "banner_fallback_cpu_motivo" and ph == "motivo":
+                                    val = traduce_motivo(lingua, val)
+                                kwargs[ph] = val
+                            except IndexError:
+                                pass
+                        try:
+                            tradotte.append(t(lingua, chiave, **kwargs))
+                        except Exception:
+                            tradotte.append(parte)
+                        trovata = True
+                        break
+                if trovata:
+                    break
+            if not trovata:
+                tradotte.append(parte)
+        joined = "; ".join(tradotte)
+        if joined != testo:
+            return joined
+        return None
+
     def applica_lingua(self) -> None:
         """(Ri)imposta tutti i testi statici dal catalogo `lingua.py`."""
         lingua = self._lingua()
@@ -349,6 +528,8 @@ class MainWindow(QMainWindow):
             self.set_stato(t(lingua, "status_pronto"))
         self.aggiorna_intestazione()
         self._aggiorna_bottoni()
+        # ritraduci banner di errore/stato (locale/esterno) quando non è fallback
+        self._ritraduci_banner_se_visibile(lingua)
 
     def set_tema(self, nome: str) -> None:
         if nome not in NOMI_TEMI:
@@ -404,7 +585,7 @@ class MainWindow(QMainWindow):
 
     def _richiedi_engine(self) -> OcrEngine | None:
         if self._engine is None:
-            self.mostra_banner(t(self._lingua(), "banner_motore_non_pronto"))
+            self._mostra_banner_chiave("banner_motore_non_pronto")
             return None
         return self._engine
 
@@ -425,7 +606,7 @@ class MainWindow(QMainWindow):
         try:
             self.avvia(self._carica_documento(percorso), engine, documento=percorso)
         except (FileNotFoundError, ValueError) as e:
-            self.mostra_banner(t(self._lingua(), "banner_errore", dettaglio=e))
+            self._mostra_banner_chiave("banner_errore", dettaglio=e)
 
     def _carica_documento(self, percorso: str) -> list[bytes]:
         from locallens.app.ingresso import carica_documento
@@ -441,7 +622,7 @@ class MainWindow(QMainWindow):
             return
         png = da_appunti(QApplication.clipboard())
         if png is None:
-            self.mostra_banner(t(self._lingua(), "banner_appunti_vuoti"))
+            self._mostra_banner_chiave("banner_appunti_vuoti")
             return
         self.avvia([png], engine)
 
@@ -455,7 +636,7 @@ class MainWindow(QMainWindow):
             png = cattura_schermo()
             self.avvia([png], engine)
         except Exception as e:  # noqa: BLE001 — display assente ecc: banner, mai crash
-            self.mostra_banner(t(self._lingua(), "banner_errore", dettaglio=e))
+            self._mostra_banner_chiave("banner_errore", dettaglio=e)
 
     def _preset_corrente(self):
         from locallens.config.presets import preset_da_conf
@@ -515,9 +696,12 @@ class MainWindow(QMainWindow):
             self.conf = nuovo_dict
         else:
             self.conf = Config.from_dict(nuovo_dict)
-        if avviso:
-            self.mostra_banner(avviso)
         salva_impostazioni(self.conf)
+        sorgente = self._conf_val("sorgente", "bundlato")
+        has_fallback = any(
+            getattr(e, "motore_usato", "") == "cpu-tesseract" for e in getattr(self, "_correnti", [])
+        )
+        preserve_fallback = has_fallback and sorgente != "nessuno"
         self.applica_lingua()
         self.aggiorna_intestazione()
         if ric is not None:
@@ -532,11 +716,14 @@ class MainWindow(QMainWindow):
             engine, stato, banner = factory.rebuild(cfg)
         self.set_engine(engine)
         self.set_stato(stato)
-        if banner:
+        if preserve_fallback:
+            return  # fallback già mostrato da applica_lingua, non sovrascrivere con avviso/banner engine
+        if avviso:
+            self.mostra_banner(avviso)
+        elif banner:
             self.mostra_banner(banner)
         else:
-            if not avviso:
-                self.nascondi_banner()
+            self.nascondi_banner()
         # sync controller
         self._sync_controller_config()
         if hasattr(self, "controller"):
@@ -621,7 +808,7 @@ class MainWindow(QMainWindow):
     def _on_errore(self, job_id: str, messaggio: str) -> None:
         self.progress.hide()
         self.btn_annulla.setEnabled(False)
-        self.mostra_banner(t(self._lingua(), "banner_errore", dettaglio=messaggio))
+        self._mostra_banner_chiave("banner_errore", dettaglio=messaggio)
         self._worker = None  # type: ignore
         if hasattr(self, "controller"):
             self.controller._worker = None  # type: ignore
@@ -631,11 +818,18 @@ class MainWindow(QMainWindow):
         self.statusBar().showMessage(messaggio)
 
     def mostra_banner(self, messaggio: str) -> None:
+        # raw path (factory/engine): memorizza per eventuale ritraduzione
+        if self._banner_chiave is None:
+            # se non è già tracked, salva raw per reverse-lookup
+            self._banner_raw = messaggio
         self.banner.setText(messaggio)
         self.banner.show()
 
     def nascondi_banner(self) -> None:
         self.banner.hide()
+        self._banner_chiave = None
+        self._banner_kwargs = {}
+        self._banner_raw = None
 
     def mostra_estrazioni(self, estrazioni: list[Estrazione]) -> None:
         from PySide6.QtGui import QColor
@@ -654,6 +848,7 @@ class MainWindow(QMainWindow):
         self.lista.clear()
         lingua = self._lingua()
         modello_esterno = str(self._conf_val("modello_esterno", "") or "")
+        sorgente = str(self._conf_val("sorgente", "bundlato") or "bundlato")
         for e in estrazioni:
             caduta = e.motore_usato == "cpu-tesseract"
             etichetta = etichetta_motore(lingua, e.motore_usato, modello_esterno)
@@ -664,12 +859,29 @@ class MainWindow(QMainWindow):
             dettaglio = e.motore_usato
             if e.motore_usato == "esterno" and modello_esterno.strip():
                 dettaglio += f" • {modello_esterno.strip()}"
-            item.setToolTip(f"{dettaglio} • {tempo}")
+            tooltip = f"{dettaglio} • {tempo}"
+            if e.nota:
+                nota_tradotta = traduce_motivo(lingua, motivo_naturale(lingua, e.nota))
+                tooltip += f" — {nota_tradotta}"
+            item.setToolTip(tooltip)
             item.setData(Qt.ItemDataRole.UserRole, e.motore_usato)
             item.setForeground(QColor(t_tema["fallback" if caduta else "success"]))
             self.lista.addItem(item)
-            if caduta:
-                self.mostra_banner(t(lingua, "banner_fallback_cpu", id=e.pagina_id))
+            if caduta and sorgente != "nessuno":
+                motivo = (e.nota or "").strip()
+                if motivo and motivo != "sorgente=nessuno":
+                    nat = motivo_naturale(lingua, motivo)
+                    trad = traduce_motivo(lingua, nat)
+                    motivo_breve = trad[:250]
+                    self._banner_chiave = "banner_fallback_cpu_motivo"
+                    self._banner_kwargs = {"id": e.pagina_id, "motivo": motivo_breve}
+                    self._banner_raw = None
+                    self.mostra_banner(t(lingua, "banner_fallback_cpu_motivo", id=e.pagina_id, motivo=motivo_breve))
+                else:
+                    self._banner_chiave = "banner_fallback_cpu"
+                    self._banner_kwargs = {"id": e.pagina_id}
+                    self._banner_raw = None
+                    self.mostra_banner(t(lingua, "banner_fallback_cpu", id=e.pagina_id))
         # Output markdown pulito: solo testi, nessuna intestazione Pagina
         if estrazioni:
             corpo = "\n\n".join(e.testo for e in estrazioni)
@@ -749,12 +961,12 @@ class MainWindow(QMainWindow):
         if hasattr(self, "controller") and self.controller._worker is not None:
             self.controller.cancel()
             self.btn_annulla.setEnabled(False)
-            self.mostra_banner(t(self._lingua(), "banner_annullamento"))
+            self._mostra_banner_chiave("banner_annullamento")
             return
         if getattr(self, "_worker", None) is not None:
             self._worker.annulla()  # type: ignore
             self.btn_annulla.setEnabled(False)
-            self.mostra_banner(t(self._lingua(), "banner_annullamento"))
+            self._mostra_banner_chiave("banner_annullamento")
 
     def copia(self) -> None:
         from PySide6.QtWidgets import QApplication
