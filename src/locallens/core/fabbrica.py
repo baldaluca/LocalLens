@@ -51,18 +51,17 @@ def normalizza_sorgente_da_conf(conf, preset, **rileva_kw) -> tuple[dict, str | 
 
 
 def normalizza_sorgente(conf, info, preset, **rileva_kw) -> tuple[dict, str | None]:
-    """Se il config chiede bundlato ma la GPU locale non è rilevata, ripiega su esterno."""
+    """Se il config chiede bundlato ma la GPU locale non è rilevata, segnala ma non ripiega (server generico)."""
     d = as_dict(conf)
     if d.get("sorgente", "bundlato") == "bundlato" and not disponibilita_gpu_locale(
         info, preset, **rileva_kw
     ):
-        nuova = dict(d, sorgente="esterno")
-        return nuova, t(d.get("lingua", "it"), "banner_gpu_non_rilevata")
+        return d, t(d.get("lingua", "it"), "banner_gpu_non_rilevata")
     return d, None
 
 
 def costruisci(conf, info, preset, gestore=None, crea=None, solo_cpu=None, pesi=None, verifica=None, crea_cloud=None):
-    """(engine, stato, banner). Dipendenze iniettabili; default = reali."""
+    """(engine, stato, banner). Dipendenze iniettabili; default = reali. Server generico verbatim."""
     from locallens.core.orchestrator import crea_engine as _crea
 
     d = as_dict(conf)
@@ -70,43 +69,6 @@ def costruisci(conf, info, preset, gestore=None, crea=None, solo_cpu=None, pesi=
     verifica = verifica or verifica_health
     sorgente = d.get("sorgente", "bundlato")
     lingua = d.get("lingua", "it")
-
-    if sorgente == "esterno":
-        url = d.get("url_esterno", "http://127.0.0.1:8011")
-        modello = (d.get("modello_esterno") or "").strip()
-        token = (d.get("token_esterno") or "").strip()
-        manca_modello = not modello
-        manca_token = not token
-        if manca_modello or manca_token:
-            if solo_cpu is None:
-                solo_cpu = _solo_cpu_default
-            if manca_modello and manca_token:
-                motivo = t(lingua, "motivo_esterno_manca_modello_token")
-            elif manca_modello:
-                motivo = t(lingua, "motivo_esterno_manca_modello")
-            else:
-                motivo = t(lingua, "motivo_esterno_manca_token")
-            return (
-                solo_cpu(motivo),
-                t(lingua, "stato_esterno_non_configurato"),
-                t(lingua, "banner_esterno_non_configurato"),
-            )
-        banner = "" if is_url_privata(url) else t(lingua, "banner_privacy_url")
-        # Cloud tutto a mano: token+modello+prompt, nessun preset.
-        if crea_cloud is None:
-            from locallens.core.orchestrator import crea_engine_cloud as _crea_cloud
-
-            crea_cloud = _crea_cloud
-        engine = crea_cloud(
-            url,
-            modello=modello,
-            prompt=d.get("prompt_esterno", ""),
-            token=token,
-            max_side=d.get("max_side_px", 2048),
-            contrasto=d.get("contrasto", False),
-            **_contesto(d),
-        )
-        return engine, t(lingua, "stato_esterno", url=url), banner
 
     if sorgente == "nessuno":
         if solo_cpu is None:
@@ -117,25 +79,85 @@ def costruisci(conf, info, preset, gestore=None, crea=None, solo_cpu=None, pesi=
             "",
         )
 
-    # bundlato = GPU locale: usa il server all'URL configurato, senza avviare binari.
-    url = d.get("url_gpu_locale") or d.get("url_esterno", "http://127.0.0.1:8011")
-    if verifica(url):
-        return (
-            crea(
-                url,
-                preset,
-                motore="bundlato",
-                max_side=d.get("max_side_px", 2048),
-                contrasto=d.get("contrasto", False),
-                **_contesto(d),
-            ),
-            t(lingua, "stato_gpu_locale", url=url),
-            "",
-        )
+    if sorgente in ("bundlato", "esterno"):
+        url = (d.get("url_gpu_locale") or d.get("url_esterno") or "http://127.0.0.1:8011")
+        url = str(url).strip() or "http://127.0.0.1:8011"
+        # modello fallback su preset.id per llama-server
+        modello = (d.get("modello_esterno") or "").strip()
+        if not modello and preset and getattr(preset, "id", ""):
+            modello = str(preset.id).strip()
+        token = (d.get("token_esterno") or "").strip()
+        manca_modello = not modello
+        manca_token_pubblico = not token and not is_url_privata(url)
+        if manca_modello and manca_token_pubblico:
+            if solo_cpu is None:
+                solo_cpu = _solo_cpu_default
+            motivo = t(lingua, "motivo_esterno_manca_modello_token")
+            return (
+                solo_cpu(motivo),
+                t(lingua, "stato_esterno_non_configurato"),
+                t(lingua, "banner_esterno_non_configurato"),
+            )
+        if manca_modello:
+            if solo_cpu is None:
+                solo_cpu = _solo_cpu_default
+            motivo = t(lingua, "motivo_esterno_manca_modello")
+            return (
+                solo_cpu(motivo),
+                t(lingua, "stato_esterno_non_configurato"),
+                t(lingua, "banner_esterno_non_configurato"),
+            )
+        # token opzionale per URL private, obbligatorio per pubbliche
+        if manca_token_pubblico:
+            if solo_cpu is None:
+                solo_cpu = _solo_cpu_default
+            motivo = t(lingua, "motivo_esterno_manca_token")
+            return (
+                solo_cpu(motivo),
+                t(lingua, "stato_esterno_non_configurato"),
+                t(lingua, "banner_esterno_non_configurato"),
+            )
+        banner_priv = "" if is_url_privata(url) else t(lingua, "banner_privacy_url")
+        if verifica(url):
+            # se modello_esterno esplicito → crea_cloud verbatim, altrimenti preset (bundlato)
+            if (d.get("modello_esterno") or "").strip():
+                if crea_cloud is None:
+                    from locallens.core.orchestrator import (
+                        crea_engine_cloud as _crea_cloud,
+                    )
+
+                    crea_cloud = _crea_cloud
+                engine = crea_cloud(
+                    url,
+                    modello=modello,
+                    prompt=d.get("prompt_esterno", ""),
+                    token=token,
+                    max_side=d.get("max_side_px", 2048),
+                    contrasto=d.get("contrasto", False),
+                    **_contesto(d),
+                )
+                return engine, t(lingua, "stato_esterno", url=url), banner_priv
+            return (
+                crea(
+                    url,
+                    preset,
+                    motore="bundlato",
+                    max_side=d.get("max_side_px", 2048),
+                    contrasto=d.get("contrasto", False),
+                    **_contesto(d),
+                ),
+                t(lingua, "stato_gpu_locale", url=url),
+                banner_priv,
+            )
+        if solo_cpu is None:
+            solo_cpu = _solo_cpu_default
+        motivo = t(lingua, "motivo_gpu_non_raggiungibile", url=url)
+        return solo_cpu(motivo), t(lingua, "stato_gpu_solo_cpu"), t(lingua, "banner_solo_cpu_assente", url=url)
+
+    # fallback sconosciuto → solo CPU
     if solo_cpu is None:
         solo_cpu = _solo_cpu_default
-    motivo = t(lingua, "motivo_gpu_non_raggiungibile", url=url)
-    return solo_cpu(motivo), t(lingua, "stato_gpu_solo_cpu"), t(lingua, "banner_solo_cpu_assente", url=url)
+    return solo_cpu(t(lingua, "motivo_solo_tesseract")), t(lingua, "stato_nessuno"), ""
 
 
 class EngineFactory:
@@ -179,8 +201,7 @@ class EngineFactory:
         )
 
     def rebuild(self, config: Config) -> tuple:
-        """(engine, stato, banner) from Config. Owns SorgenteModello + hardware check."""
-        # hide verifica_health, resolve_binary and snapshot_completo inside implementation (via disponibilita helper)
+        """(engine, stato, banner) from Config. Owns SorgenteModello + hardware check. Server generico verbatim."""
         from locallens.config.presets import preset_da_conf
         from locallens.core.orchestrator import OcrEngine
         from locallens.hwdetect.detector import detect
@@ -188,51 +209,15 @@ class EngineFactory:
         d = as_dict(config)
         lingua = d.get("lingua", "it")
         preset = preset_da_conf(d)
-        # ensure preset_id in dict
         d = dict(d, preset_id=preset.id)
 
-        # hidden hardware availability check (resolve_binary + snapshot_completo via helper)
         info = detect()
         avviso = None
         if d.get("sorgente", "bundlato") == "bundlato":
-            # use helper that internally hides resolve_binary/snapshot_completo; respects monkeypatch in tests
             if not disponibilita_gpu_locale(info, preset):
-                d = dict(d, sorgente="esterno")
                 avviso = t(lingua, "banner_gpu_non_rilevata")
 
         sorgente = d.get("sorgente", "bundlato")
-
-        # branch esterno
-        if sorgente == "esterno":
-            url = d.get("url_esterno", "http://127.0.0.1:8011")
-            modello = (d.get("modello_esterno") or "").strip()
-            token = (d.get("token_esterno") or "").strip()
-            manca_modello = not modello
-            manca_token = not token
-            if manca_modello or manca_token:
-                if manca_modello and manca_token:
-                    motivo = t(lingua, "motivo_esterno_manca_modello_token")
-                elif manca_modello:
-                    motivo = t(lingua, "motivo_esterno_manca_modello")
-                else:
-                    motivo = t(lingua, "motivo_esterno_manca_token")
-                banner_base = t(lingua, "banner_esterno_non_configurato")
-                banner = "; ".join(b for b in (avviso, banner_base) if b)
-                return (
-                    _solo_cpu_default(motivo),
-                    t(lingua, "stato_esterno_non_configurato"),
-                    banner,
-                )
-            banner_priv = "" if is_url_privata(url) else t(lingua, "banner_privacy_url")
-            banner = "; ".join(b for b in (avviso, banner_priv) if b)
-            infer = self._make_infer("esterno", url, preset, d)
-            from locallens.fallback.tesseract import estrai as tesseract_estrai
-
-            fallback_fn = lambda pid, png: tesseract_estrai(png)
-            engine = OcrEngine(
-                infer=infer, fallback=fallback_fn, sorgente="esterno", **_contesto(d)
-            )
-            return engine, t(lingua, "stato_esterno", url=url), banner
 
         if sorgente == "nessuno":
             banner = avviso or ""
@@ -242,20 +227,66 @@ class EngineFactory:
                 banner,
             )
 
-        # bundlato
-        url = d.get("url_gpu_locale") or d.get("url_esterno", "http://127.0.0.1:8011")
-        if self._verify(url):
-            infer = self._make_infer("bundlato", url, preset, d)
-            from locallens.fallback.tesseract import estrai as tesseract_estrai
+        if sorgente in ("bundlato", "esterno"):
+            url = (d.get("url_gpu_locale") or d.get("url_esterno") or "http://127.0.0.1:8011")
+            url = str(url).strip() or "http://127.0.0.1:8011"
+            modello = (d.get("modello_esterno") or "").strip()
+            if not modello and preset and getattr(preset, "id", ""):
+                modello = str(preset.id).strip()
+            token = (d.get("token_esterno") or "").strip()
+            manca_modello = not modello
+            manca_token_pubblico = not token and not is_url_privata(url)
+            if manca_modello and manca_token_pubblico:
+                motivo = t(lingua, "motivo_esterno_manca_modello_token")
+                banner_base = t(lingua, "banner_esterno_non_configurato")
+                banner = "; ".join(b for b in (avviso, banner_base) if b)
+                return (
+                    _solo_cpu_default(motivo),
+                    t(lingua, "stato_esterno_non_configurato"),
+                    banner,
+                )
+            if manca_modello:
+                motivo = t(lingua, "motivo_esterno_manca_modello")
+                banner_base = t(lingua, "banner_esterno_non_configurato")
+                banner = "; ".join(b for b in (avviso, banner_base) if b)
+                return (
+                    _solo_cpu_default(motivo),
+                    t(lingua, "stato_esterno_non_configurato"),
+                    banner,
+                )
+            if manca_token_pubblico:
+                motivo = t(lingua, "motivo_esterno_manca_token")
+                banner_base = t(lingua, "banner_esterno_non_configurato")
+                banner = "; ".join(b for b in (avviso, banner_base) if b)
+                return (
+                    _solo_cpu_default(motivo),
+                    t(lingua, "stato_esterno_non_configurato"),
+                    banner,
+                )
+            banner_priv = "" if is_url_privata(url) else t(lingua, "banner_privacy_url")
+            banner_ok = "; ".join(b for b in (avviso, banner_priv) if b)
+            if self._verify(url):
+                # infer verbatim: se modello_esterno esplicito usa esterno, altrimenti preset (bundlato)
+                if (d.get("modello_esterno") or "").strip():
+                    infer = self._make_infer("esterno", url, preset, d)
+                    sorg_infer = "esterno"
+                    stato = t(lingua, "stato_esterno", url=url)
+                else:
+                    infer = self._make_infer("bundlato", url, preset, d)
+                    sorg_infer = "bundlato"
+                    stato = t(lingua, "stato_gpu_locale", url=url)
+                from locallens.fallback.tesseract import estrai as tesseract_estrai
 
-            fallback_fn = lambda pid, png: tesseract_estrai(png)
-            engine = OcrEngine(
-                infer=infer, fallback=fallback_fn, sorgente="bundlato", **_contesto(d)
-            )
-            stato = t(lingua, "stato_gpu_locale", url=url)
-            banner = avviso or ""
-            return engine, stato, banner
-        motivo = t(lingua, "motivo_gpu_non_raggiungibile", url=url)
-        banner_base = t(lingua, "banner_solo_cpu_assente", url=url)
-        banner = "; ".join(b for b in (avviso, banner_base) if b)
-        return _solo_cpu_default(motivo), t(lingua, "stato_gpu_solo_cpu"), banner
+                fallback_fn = lambda pid, png: tesseract_estrai(png)
+                engine = OcrEngine(
+                    infer=infer, fallback=fallback_fn, sorgente=sorg_infer, **_contesto(d)
+                )
+                return engine, stato, banner_ok
+            motivo = t(lingua, "motivo_gpu_non_raggiungibile", url=url)
+            banner_base = t(lingua, "banner_solo_cpu_assente", url=url)
+            banner = "; ".join(b for b in (avviso, banner_base) if b)
+            return _solo_cpu_default(motivo), t(lingua, "stato_gpu_solo_cpu"), banner
+
+        # fallback sconosciuto
+        banner = avviso or ""
+        return _solo_cpu_default(t(lingua, "motivo_solo_tesseract")), t(lingua, "stato_nessuno"), banner

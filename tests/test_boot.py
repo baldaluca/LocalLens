@@ -19,5 +19,6 @@ def test_boot_bundlato_senza_pesi_va_su_esterno(monkeypatch):
     monkeypatch.setattr(fab, "disponibilita_gpu_locale", lambda *a, **k: False)
     conf = dict(DEFAULTS, sorgente="bundlato")
     _engine, stato, banner = costruisci_da_conf(conf)
-    assert stato.startswith("external") or stato.startswith("esterno")
+    # generico: non ripiega più su esterno, resta bundlato con avviso
     assert "GPU locale non rilevata" in banner or "Local GPU not detected" in banner
+    assert "GPU locale" in stato or "Local GPU" in stato or "solo CPU" in stato or "CPU only" in stato

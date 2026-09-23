@@ -58,10 +58,20 @@ def verifica_health(base_url: str, timeout: float = 2) -> bool:
         if not base:
             base = base_url.rstrip("/")
         return _get_ok(base + "/api/tags")
-    # openai-compat: prova /v1/models → /health → base stessa
+    # openai-compat: estrai host-root per evitare /v1/chat/completions/v1/models malformata
+    parsed = urlparse(base_url)
+    if parsed.scheme and parsed.netloc:
+        origin = f"{parsed.scheme}://{parsed.netloc}"
+    else:
+        origin = base_url.rstrip("/").split("/")[0]
+        if not origin:
+            origin = base_url.rstrip("/")
     base = base_url.rstrip("/")
     for suffix in ("/v1/models", "/health", ""):
-        cand = base + suffix if not base.endswith(suffix) or suffix == "" else base
+        if suffix == "":
+            cand = base
+        else:
+            cand = origin + suffix
         if _get_ok(cand):
             return True
     return False

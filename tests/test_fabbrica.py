@@ -27,7 +27,7 @@ def test_esterno_punta_a_url():
     def crea_cloud(url, **k):
         return ("engine-cloud", url)
 
-    eng, _stato, banner = costruisci(conf, _info(), preset, crea_cloud=crea_cloud)
+    eng, _stato, banner = costruisci(conf, _info(), preset, crea_cloud=crea_cloud, verifica=lambda u: True)
     assert eng == ("engine-cloud", "http://127.0.0.1:8011")
     assert banner == ""
 
@@ -40,7 +40,7 @@ def test_esterno_pubblico_avvisa():
         "modello_esterno": "vision-x",
         "token_esterno": "tk-segreto",
     }
-    _eng, _stato, banner = costruisci(conf, _info(), preset, crea_cloud=lambda u, **k: u)
+    _eng, _stato, banner = costruisci(conf, _info(), preset, crea_cloud=lambda u, **k: u, verifica=lambda u: True)
     assert banner != ""
 
 
@@ -110,7 +110,7 @@ def test_esterno_trasmette_contesto_filtro():
         viste.update(k)
         return "engine"
 
-    costruisci(conf, _info(), preset, crea_cloud=crea_cloud)
+    costruisci(conf, _info(), preset, crea_cloud=crea_cloud, verifica=lambda u: True)
     assert viste["lingue_attese"] == ("it", "en")
     assert viste["soglia_righe_loop"] == 9
     assert viste["ignora_eco"] is True
@@ -130,7 +130,7 @@ def test_contesto_default_senza_chiavi():
         viste.update(k)
         return "engine"
 
-    costruisci(conf, _info(), preset, crea_cloud=crea_cloud)
+    costruisci(conf, _info(), preset, crea_cloud=crea_cloud, verifica=lambda u: True)
     assert viste["lingue_attese"] == ("it",)
     assert viste["soglia_righe_loop"] == 5
     assert viste["ignora_eco"] is False
@@ -159,7 +159,8 @@ def test_normalizza_ripiega_su_esterno_se_gpu_assente(monkeypatch):
     preset = load_preset("presets/glm-ocr-q8_0.toml")
     conf = {"sorgente": "bundlato"}
     nuova, banner = normalizza_sorgente(conf, _info(), preset)
-    assert nuova["sorgente"] == "esterno"
+    # generico: non ripiega più su esterno, solo avviso
+    assert nuova["sorgente"] == "bundlato"
     assert "GPU locale non rilevata" in banner
 
 
@@ -212,7 +213,7 @@ def test_esterno_cloud_usa_token_modello_prompt():
         viste.update(url=url, **k)
         return "engine-cloud"
 
-    eng, stato, banner = costruisci(conf, _info(), preset, crea_cloud=crea_cloud)
+    eng, stato, banner = costruisci(conf, _info(), preset, crea_cloud=crea_cloud, verifica=lambda u: True)
     assert eng == "engine-cloud"
     assert viste["url"] == "http://127.0.0.1:8000"
     assert viste["modello"] == "vision-x"
@@ -223,10 +224,11 @@ def test_esterno_cloud_usa_token_modello_prompt():
 
 
 def test_esterno_senza_modello_solo_cpu_con_banner_guida():
-    """Senza modello_esterno → niente engine remoto, solo CPU + guida."""
+    """Senza modello_esterno e senza fallback preset → solo CPU + guida."""
     from locallens.app.lingua import t
+    from locallens.config.presets import PresetModello
 
-    preset = load_preset("presets/glm-ocr-q8_0.toml")
+    preset_vuoto = PresetModello(id="", gguf_file="x", mmproj_file="y", chat_template="t", vram_min_mb=0, ctx_size=4096, max_side_px=2048, max_tokens=2048)
     conf = {
         "sorgente": "esterno",
         "url_esterno": "http://127.0.0.1:8011",
@@ -240,7 +242,7 @@ def test_esterno_senza_modello_solo_cpu_con_banner_guida():
         raise AssertionError("senza modello non si costruisce alcun engine remoto")
 
     eng, stato, banner = costruisci(
-        conf, _info(), preset,
+        conf, _info(), preset_vuoto,
         crea=_crea_mai, crea_cloud=_crea_cloud_mai,
         solo_cpu=lambda motivo: f"cpu:{motivo}",
     )
@@ -252,13 +254,13 @@ def test_esterno_senza_modello_solo_cpu_con_banner_guida():
 
 
 def test_esterno_token_mancante_solo_cpu_con_banner_guida():
-    """Senza token_esterno → niente engine remoto, solo CPU + guida."""
+    """Senza token su URL pubblico → solo CPU + guida (token opzionale solo per private)."""
     from locallens.app.lingua import t
 
     preset = load_preset("presets/glm-ocr-q8_0.toml")
     conf = {
         "sorgente": "esterno",
-        "url_esterno": "http://127.0.0.1:8011",
+        "url_esterno": "http://203.0.113.10:8011",
         "modello_esterno": "vision-x",
         "token_esterno": "   ",
     }
@@ -278,14 +280,15 @@ def test_esterno_token_mancante_solo_cpu_con_banner_guida():
 
 
 def test_esterno_senza_modello_e_token_solo_cpu_menziona_entrambi():
-    """Mancano entrambi → il motivo cita modello e token."""
+    """Mancano entrambi su URL pubblico senza fallback preset → motivo cita modello e token."""
     from locallens.app.lingua import t
+    from locallens.config.presets import PresetModello
 
-    preset = load_preset("presets/glm-ocr-q8_0.toml")
+    preset_vuoto = PresetModello(id="", gguf_file="x", mmproj_file="y", chat_template="t", vram_min_mb=0, ctx_size=4096, max_side_px=2048, max_tokens=2048)
     for lingua in ("it", "en"):
-        conf = {"sorgente": "esterno", "url_esterno": "http://127.0.0.1:8011", "lingua": lingua}
+        conf = {"sorgente": "esterno", "url_esterno": "http://203.0.113.10:8011", "lingua": lingua}
         eng, stato, banner = costruisci(
-            conf, _info(), preset,
+            conf, _info(), preset_vuoto,
             crea_cloud=lambda u, **k: (_ for _ in ()).throw(AssertionError("mai")),
             solo_cpu=lambda motivo: f"cpu:{motivo}",
         )
@@ -312,7 +315,7 @@ def test_esterno_configurato_costruisce_cloud():
         viste.update(url=url, **k)
         return "engine-cloud"
 
-    eng, stato, banner = costruisci(conf, _info(), preset, crea_cloud=crea_cloud)
+    eng, stato, banner = costruisci(conf, _info(), preset, crea_cloud=crea_cloud, verifica=lambda u: True)
     assert eng == "engine-cloud"
     assert viste["modello"] == "vision-x"
     assert viste["token"] == "tk-segreto"
@@ -345,7 +348,7 @@ def test_costruisci_esterno_banner_privacy_inglese():
         "token_esterno": "tk-segreto",
     }
     _eng, stato, banner = costruisci(
-        conf, _info(), preset, crea_cloud=lambda u, **k: u
+        conf, _info(), preset, crea_cloud=lambda u, **k: u, verifica=lambda u: True
     )
     assert banner == t("en", "banner_privacy_url")
 
@@ -422,11 +425,118 @@ def test_costruisci_bundlato_ok_stato_inglese():
 
 
 def test_factory_rebuild_bundlato(monkeypatch):
+    import locallens.core.fabbrica as fab
     from locallens.config.settings import Config
     from locallens.core.fabbrica import EngineFactory
-    import locallens.core.fabbrica as fab
     monkeypatch.setattr(fab, "disponibilita_gpu_locale", lambda *a, **k: True)
     cfg = Config(lingua="en", sorgente="bundlato", url_gpu_locale="http://127.0.0.1:8011")
     f = EngineFactory(cfg, verify=lambda url: True)
     engine, stato, banner = f.rebuild(cfg)
     assert "Local GPU" in stato or "GPU locale" in stato
+
+
+# Task2 — server generico verbatim, 4 nuovi test (TDD)
+
+def test_bundlato_privata_senza_token_non_blocca():
+    """URL privata (loopback) non richiede token_esterno: token opzionale per locale."""
+    preset = load_preset("presets/glm-ocr-q8_0.toml")
+    conf = {
+        "sorgente": "esterno",
+        "url_esterno": "http://127.0.0.1:11434/api/chat",
+        "modello_esterno": "dott",
+        "token_esterno": "",
+    }
+    eng, stato, banner = costruisci(
+        conf, _info(), preset,
+        crea_cloud=lambda url, **k: "engine",
+        solo_cpu=lambda m: f"cpu:{m}",
+    )
+    assert eng == "engine"
+    assert banner == ""
+    assert "11434" in stato
+
+
+def test_esterno_modello_fallback_su_preset_id():
+    """Se modello_esterno manca ma preset.id presente, usa preset.id (llama-server)."""
+    preset = load_preset("presets/glm-ocr-q8_0.toml")
+    conf = {
+        "sorgente": "esterno",
+        "url_esterno": "http://127.0.0.1:8011",
+        "token_esterno": "tk-segreto",
+        "modello_esterno": "",
+        "preset_id": preset.id,
+    }
+    viste = {}
+
+    def crea(url, p, motore, **k):
+        viste["url"] = url
+        viste["preset_id"] = p.id if p else ""
+        return "engine-preset"
+
+    eng, stato, banner = costruisci(
+        conf, _info(), preset,
+        crea=crea,
+        crea_cloud=lambda url, **k: (_ for _ in ()).throw(AssertionError("non deve usare cloud senza modello esplicito")),
+        solo_cpu=lambda m: f"cpu:{m}",
+        verifica=lambda u: True,
+    )
+    assert eng == "engine-preset"
+    assert viste["preset_id"] == preset.id
+
+
+def test_pubblica_senza_token_richiede_token():
+    """URL pubblica senza token → solo CPU, anche se sorgente bundlato (unificato)."""
+    from locallens.app.lingua import t
+
+    preset = load_preset("presets/glm-ocr-q8_0.toml")
+    for sorg in ("bundlato", "esterno"):
+        conf = {
+            "sorgente": sorg,
+            "url_gpu_locale": "http://203.0.113.10:8011",
+            "url_esterno": "http://203.0.113.10:8011",
+            "modello_esterno": "vision-x",
+            "token_esterno": "",
+            "lingua": "it",
+        }
+        eng, stato, banner = costruisci(
+            conf, _info(), preset,
+            crea=lambda u, p, motore, **k: "engine",
+            crea_cloud=lambda u, **k: "engine",
+            solo_cpu=lambda m: f"cpu:{m}",
+            verifica=lambda u: True,
+        )
+        assert eng == f"cpu:{t('it', 'motivo_esterno_manca_token')}"
+        assert stato == t("it", "stato_esterno_non_configurato")
+
+
+def test_url_generico_verbatim_qualsiasi_sorgente():
+    """URL generico verbatim: bundlato o esterno usano url_gpu_locale/url_esterno intercambiabili."""
+    preset = load_preset("presets/glm-ocr-q8_0.toml")
+    for sorg, chiave_url in [("bundlato", "url_esterno"), ("esterno", "url_gpu_locale")]:
+        url = "http://127.0.0.1:11434/api/chat"
+        conf = {
+            "sorgente": sorg,
+            chiave_url: url,
+            "modello_esterno": "dott",
+            "token_esterno": "x",
+        }
+        viste = {}
+
+        def crea(url_, p, motore, **k):
+            viste["url"] = url_
+            return "engine"
+
+        def crea_cloud(url_, **k):
+            viste["url"] = url_
+            return "engine"
+
+        eng, stato, banner = costruisci(
+            conf, _info(), preset,
+            crea=crea,
+            crea_cloud=crea_cloud,
+            solo_cpu=lambda m: f"cpu:{m}",
+            verifica=lambda u: (viste.setdefault("verifica_url", u), True)[1],
+        )
+        assert eng == "engine"
+        assert viste["url"] == url
+        assert viste["verifica_url"] == url
