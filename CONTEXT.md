@@ -11,7 +11,7 @@ Flavor of the llama-server binary selected at runtime based on platform and GPU.
 _Avoid_: generic backend
 
 **SorgenteModello (ModelSource)**:
-Where the inference client points: `bundlato` (bundled/local GPU server), `esterno` (external server/cloud), or `nessuno` (no local model — CPU fallback only).
+Where the inference client points: `bundlato` (bundled/local GPU server), `esterno` (external server/cloud — self-hosted or OpenAI-compatible cloud such as OpenRouter `https://openrouter.ai/api/v1/chat/completions` with model `inclusionai/ling-3.0-flash-vl:free`), or `nessuno` (no local model — CPU fallback only).
 _Avoid_: backend, engine
 
 **PresetModello (ModelPreset)**:

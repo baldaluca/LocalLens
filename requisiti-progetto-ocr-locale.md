@@ -2,15 +2,15 @@
 ## Cross-platform desktop OCR app with GPU-accelerated local inference
 
 **Project name:** LocalLens
-**Version:** 2.1
-**Date:** 2026-09-18 (rev: optional external/cloud server, session-only token, IT/EN interface)
+**Version:** 2.2
+**Date:** 2026-09-23 (rev: external/cloud via OpenRouter free vision models, session-only token, IT/EN interface)
 **Target platforms:** Linux and Windows (v1 priority); macOS out of scope for v1
 
 ---
 
 ## 1. Project goal
 
-Build a **cross-platform** desktop application, with **Linux and Windows as v1 priorities** (macOS deferred), that performs OCR (text extraction from images/documents) primarily locally, leveraging GPU acceleration when available — **regardless of vendor** (NVIDIA, AMD, Intel, Apple Silicon) — with automatic CPU fallback when not available. Since v2.1 an explicit external/cloud server is allowed (URL + model + prompt manually entered, token session-only never saved), with a privacy warning on non-local URLs.
+Build a **cross-platform** desktop application, with **Linux and Windows as v1 priorities** (macOS deferred), that performs OCR (text extraction from images/documents) primarily locally, leveraging GPU acceleration when available — **regardless of vendor** (NVIDIA, AMD, Intel, Apple Silicon) — with automatic CPU fallback when not available. Since v2.1 an explicit external/cloud server is allowed (URL + model + prompt manually entered, token session-only never saved), with a privacy warning on non-local URLs. Since v2.2 this includes OpenRouter and other OpenAI-compatible cloud endpoints; recommended free vision models for OCR are documented in `README.md` (e.g. `inclusionai/ling-3.0-flash-vl:free`).
 
 ---
 
@@ -56,7 +56,7 @@ Note: with 6 GB VRAM and a much newer architecture than the GTX 960M, this machi
 - Native desktop UI for **Linux and Windows** (v1 priorities)
 - Automatic detection of the available GPU backend (CUDA/HIP/Metal/Vulkan) with CPU fallback (Tesseract) when no GPU backend is usable
 - Model presets selectable by VRAM detected at runtime
-- Model source configuration: Local GPU (server at configured URL, entry shown only if binaries and weights detected, otherwise fallback to external), external/cloud server with manual URL + model + prompt (Ollama `/api/chat` dialect auto-detected from URL, API token session-only never saved), or no local model (Tesseract-only)
+- Model source configuration: Local GPU (server at configured URL, entry shown only if binaries and weights detected, otherwise fallback to external), external/cloud server with manual URL + model + prompt (Ollama `/api/chat` dialect auto-detected from URL, OpenAI-compatible cloud such as `https://openrouter.ai/api/v1/chat/completions` with free vision models like `inclusionai/ling-3.0-flash-vl:free`, API token session-only never saved), or no local model (Tesseract-only)
 - Save/copy extracted text
 - Interface in Italian or English, hot-switchable from Settings
 
@@ -83,7 +83,7 @@ Note: with 6 GB VRAM and a much newer architecture than the GTX 960M, this machi
 | RF7 | The UI must clearly indicate which engine/backend (CUDA, HIP, Metal, Vulkan or CPU) processed each document |
 | RF8 | The system must explicitly handle multi-page documents (sequential page-by-page processing) |
 | RF9 | The app must remain fully usable (via CPU fallback) even on machines without a dedicated GPU or with a GPU not covered by any supported backend |
-| RF10 | The user must be able to choose the OCR model source among three modes: (a) bundled backend managed by the app (RF3/RF6), (b) URL of an already-running external `llama.cpp` server entered manually, (c) no local model — Tesseract-only, as an explicit choice not just automatic degradation |
+| RF10 | The user must be able to choose the OCR model source among three modes: (a) bundled backend managed by the app (RF3/RF6), (b) URL of an already-running external `llama.cpp` server or any OpenAI-compatible endpoint (e.g. `https://openrouter.ai/api/v1/chat/completions` with model `inclusionai/ling-3.0-flash-vl:free` — see `README.md` for recommended free VLMs) entered manually, (c) no local model — Tesseract-only, as an explicit choice not just automatic degradation |
 
 ---
 
@@ -125,9 +125,9 @@ Note: with 6 GB VRAM and a much newer architecture than the GTX 960M, this machi
 - **Vulkan is the universal GPU fallback** when the vendor-specific backend is unavailable or not built for that platform/GPU combination.
 - For v1 priorities (Linux, Windows), the relevant backends are: CUDA, HIP/ROCm (Linux only), Vulkan, CPU. Metal (macOS) needs no build in v1.
 - **Distribution strategy (confirmed)**: single package per platform (Linux, Windows) bundling all relevant `llama-server` binaries for that OS (CUDA, HIP/ROCm where relevant, Vulkan, CPU), with **automatic runtime selection** of the correct binary based on detected backend — not separate installers per backend. This reuses the same detection logic already required by RF3, avoids picking the wrong package, and lets the app adapt if the machine's hardware changes without reinstalling.
-- OCR models: distributed as GGUF with compatible `mmproj` (e.g. from the `ggml-org` collection on Hugging Face: DeepSeek-OCR, PaddleOCR-VL, GLM-OCR, Dots.OCR, HunyuanOCR).
+- OCR models: distributed as GGUF with compatible `mmproj` for local inference (e.g. from the `ggml-org` collection on Hugging Face: DeepSeek-OCR, PaddleOCR-VL, GLM-OCR, Dots.OCR, HunyuanOCR). For external/cloud (`esterno`), any OpenAI-compatible vision model is valid — recommended free options via OpenRouter (`inclusionai/ling-3.0-flash-vl:free`, `nex-agi/nex-n2.5-pro:free`, `qwen/qwen3.8-27b:free`, `google/gemma-4-31b-it:free`, etc. — full list in `README.md`, verified 2026-09-23).
 - **Per-model prompt template**: each GGUF OCR model has its own prompt/chat-template structure (e.g. `--chat-template deepseek-ocr`). The `core` layer must treat it as per-model configuration, not a hardcoded constant.
-- The backend must expose an OpenAI-compatible API (`/v1/chat/completions`), consistent with the existing Qwen server pattern, on a **dedicated port** separate from other running LLM servers.
+- The backend must expose an OpenAI-compatible API (`/v1/chat/completions`), consistent with the existing Qwen server pattern, on a **dedicated port** separate from other running LLM servers. The same interface is used for external/cloud providers (OpenRouter `https://openrouter.ai/api/v1/chat/completions` is verbatim OpenAI-compatible — `src/locallens/core/client.py:86`).
 - Tesseract (CPU fallback) has no GPU compatibility constraints: low-risk dependency, identical on all platforms.
 - **PDF extraction/rendering library (confirmed): `pypdfium2`** (Python binding for PDFium, Chrome's PDF engine). Preferred over `pdf2image`/Poppler because Poppler requires an external system binary — on Windows it must be downloaded manually and added to PATH, a common source of setup/runtime errors. `pypdfium2` is a self-contained pip package (no external dependency) with prebuilt wheels for Linux and Windows. Also preferred over `PyMuPDF` (technically equivalent and also self-contained) for licensing: PDFium is permissive, while PyMuPDF is AGPL-3.0 or paid — less compatible with a non-AGPL distribution.
 

@@ -61,13 +61,15 @@ Forbidden: `app → backend`, `app → hwdetect`, `app → __main__`; `core → 
 - **ModelSource** `bundlato | esterno | nessuno` (UI labels: Local GPU / External / None):
   `bundlato` = server at Local GPU URL if `verify_health` responds, without spawning
   binaries (binary+weight detection only controls visibility and automatic fallback
-  to external); `esterno` = manual local or cloud server
-  (verbatim URL, model+prompt, Bearer token session-only, Ollama dialect
-  auto on `/api/chat` URL); `nessuno` = direct fallback; non-local URL = banner (RNF1).
+  to external); `esterno` = any OpenAI-compatible server at verbatim URL
+  (self-hosted `llama-server` / Ollama `/api/chat` dialect auto-detected / cloud
+  such as `https://openrouter.ai/api/v1/chat/completions` with model `inclusionai/ling-3.0-flash-vl:free` etc.),
+  model+prompt, Bearer token session-only; `nessuno` = direct fallback;
+  non-local URL = banner (RNF1). See `README.md` for recommended OpenRouter free vision models.
 - **ModelPreset**: GGUF + mmproj + documented chat-template + constraints; never hardcoded;
-  used only for local servers, not for cloud.
+  used only for local servers, not for cloud (cloud uses manual model + prompt via `src/locallens/core/client.py:14`).
 - **Document / Page / Extraction**: `Extraction{..., engine_used, ms, note}`; `note`
-  explains fallback (basis for badge and banner, RF7).
+  explains fallback (basis for badge and banner, RF7). For `esterno`, `engine_used = "esterno"` regardless of provider.
 
 ## 3. Verified flows
 
@@ -89,12 +91,15 @@ Details and live commands in `*_LIVE` tests.
 
 - `uv sync`; `pytest -q` (live skipped without `LOCALLENS_LIVE`/`TESSERACT_LIVE`);
   `ruff check`, `mypy` clean (policy: zero errors).
-- `tools/fetch-binaries.py --os linux --all` then `pyinstaller locallens.spec`;
-  `dist/locallens/locallens` tested with offscreen boot.
+- `tools/fetch-binaries.py --os linux --all` (or `--os win32 --all` on/for Windows) then `pyinstaller locallens.spec`;
+  `dist/locallens/locallens` (or `.exe`) tested with offscreen boot (`QT_QPA_PLATFORM=offscreen` on Linux, `Start-Process` smoke on Windows — `.github/workflows/ci.yml:81`).
+- CI matrix `ubuntu-latest + windows-latest` runs unit + packaging + smoke on both OSes.
+- External live smoke can target OpenRouter: `LOCALLENS_LIVE=1 LOCALLENS_URL=https://openrouter.ai/api/v1/chat/completions OPENROUTER_API_KEY=sk-or-...`.
 - Pinning updated only after tests on both reference machines (§10 in requirements).
 
 ## 5. Out of scope for v1 (honest)
 
-Deskew/crop (RF2 partial: only resize+contrast), Windows RTX 4050 smoke test,
-medium/high VRAM preset (§12), app stores, macOS/Metal.
+Deskew/crop (RF2 partial: only resize+contrast), Windows RTX 4050 smoke test on physical hardware
+(manual, not gated on every CI run), medium/high VRAM preset (§12), app stores, macOS/Metal.
 Deliberately out: API Token persistence (session-only for security).
+Cloud OCR via OpenRouter free vision models (`inclusionai/ling-3.0-flash-vl:free` etc.) is supported as `esterno` — see `README.md` — but free-tier availability rotates and is not guaranteed.

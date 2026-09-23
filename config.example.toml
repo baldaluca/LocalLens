@@ -3,6 +3,12 @@
 lingua = "en"                 # it | en — default en
 sorgente = "bundlato"          # bundlato | esterno | nessuno
 url_esterno = "http://127.0.0.1:8011"
+# External cloud example (OpenRouter free vision — token is session-only, never saved):
+# sorgente = "esterno"
+# url_esterno = "https://openrouter.ai/api/v1/chat/completions"
+# modello_esterno = "inclusionai/ling-3.0-flash-vl:free"  # see README for more free VLMs
+# prompt_esterno = "Transcribe the document text exactly. No commentary."
+# token_esterno = ""  # NEVER written to disk — set in Settings at runtime (sk-or-v1-...)
 preset_id = "glm-ocr-q8_0"     # manual override, otherwise auto from VRAM
 backend_override = ""          # "" = auto; or cuda | hip | vulkan | cpu
 porta = 8011                   # default, scans 8011-8020 if occupied
