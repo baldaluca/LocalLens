@@ -263,20 +263,20 @@ class EngineFactory:
                 )
             banner_priv = "" if is_url_privata(url) else t(lingua, "banner_privacy_url")
             banner_ok = "; ".join(b for b in (avviso, banner_priv) if b)
-            if self._verify(url):
-                # infer verbatim: usa sorgente per decidere, non modello_esterno
-                if (d.get("modello_esterno") or "").strip():
-                    infer = self._make_infer("esterno", url, preset, d)
-                    sorg_infer = "esterno"
-                    stato = t(lingua, "stato_esterno", url=url)
-                else:
-                    infer = self._make_infer("bundlato", url, preset, d)
-                    sorg_infer = "bundlato"
-                    stato = t(lingua, "stato_gpu_locale", url=url)
-                from locallens.fallback.tesseract import estrai as tesseract_estrai
-                fallback_fn = lambda pid, png: tesseract_estrai(png)
-                engine = OcrEngine(infer=infer, fallback=fallback_fn, sorgente=sorg_infer, **_contesto(d))
-                return engine, stato, banner_ok
+        if self._verify(url):
+            # infer verbatim: scegli in base a "sorgente" (bundlato o esterno)
+            if sorgente == "esterno":
+                infer = self._make_infer("esterno", url, preset, d)
+                sorg_infer = "esterno"
+                stato = t(lingua, "stato_esterno", url=url)
+            else:
+                infer = self._make_infer("bundlato", url, preset, d)
+                sorg_infer = "bundlato"
+                stato = t(lingua, "stato_gpu_locale", url=url)
+            from locallens.fallback.tesseract import estrai as tesseract_estrai
+            fallback_fn = lambda pid, png: tesseract_estrai(png)
+            engine = OcrEngine(infer=infer, fallback=fallback_fn, sorgente=sorg_infer, **_contesto(d))
+            return engine, stato, banner_ok
         # fallback: server not reachable → solo CPU
         motivo = t(lingua, "motivo_gpu_non_raggiungibile", url=url)
         banner_base = t(lingua, "banner_solo_cpu_assente", url=url)
