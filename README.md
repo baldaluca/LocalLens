@@ -55,6 +55,98 @@ Requirements: Python ≥ 3.11, [uv](https://docs.astral.sh/uv/), Tesseract (`cho
 
 Presets (`presets/*.toml`) apply to local servers; external/cloud uses your manual model + prompt. See `PresetModello` in `CONTEXT.md`.
 
+### Local GPU with llama.cpp (recommended)
+
+LocalLens is designed to work seamlessly with **llama.cpp**'s `llama-server`, which natively supports **PDF input** via mtmd (multi-modal). When you run a local `llama-server` with a vision-capable GGUF model (and its matching `mmproj`), the server accepts PDFs directly — no client-side rendering needed. LocalLens sends the PDF bytes verbatim to the server's `/v1/chat/completions` endpoint.
+
+**Tested models** (used in CI and manual validation):
+
+| Model | HF Repo | Quant | Notes |
+|---|---|---|---|
+| LightOnOCR 1B | `ggml-org/LightOnOCR-1B-1025-GGUF` | Q8_0 | Fast, low VRAM (~2 GB), optimized for OCR |
+| Qwen2-VL 2B | `ggml-org/Qwen2-VL-2B-Instruct-GGUF` | Q4_K_M | Strong general vision, good document understanding |
+
+Both are available from the `ggml-org` Hugging Face collection and work with the default presets in `presets/` (`lighton-ocr-q8_0.toml`, `glm-ocr-q8_0.toml`).
+
+### Installing llama.cpp (for Local GPU)
+
+1. **Build or download `llama-server`**
+
+   **Option A: Build from source (recommended for GPU acceleration)**
+
+   ```bash
+   # Linux/macOS
+   git clone https://github.com/ggml-org/llama.cpp
+   cd llama.cpp
+   cmake -B build -DGGML_CUDA=ON -DGGML_VULKAN=ON -DLLAMA_MTMD=ON  # adjust flags for your GPU
+   cmake --build build --config Release -j
+   # Binary: ./build/bin/llama-server
+   ```
+
+   ```powershell
+   # Windows (PowerShell)
+   git clone https://github.com/ggml-org/llama.cpp
+   cd llama.cpp
+   cmake -B build -DGGML_CUDA=ON -DLLAMA_MTMD=ON
+   cmake --build build --config Release
+   # Binary: .\build\bin\Release\llama-server.exe
+   ```
+
+   **Option B: Prebuilt binaries (CPU only or limited GPU)**
+
+   Download from [llama.cpp releases](https://github.com/ggml-org/llama.cpp/releases) — look for `llama-server` with mtmd support.
+
+2. **Download model weights (GGUF + mmproj)**
+
+   ```bash
+   # LightOnOCR 1B Q8_0 (recommended for OCR, ~1.4 GB total)
+   huggingface-cli download ggml-org/LightOnOCR-1B-1025-GGUF \
+     --local-dir ./models/LightOnOCR-1B-1025-GGUF \
+     --include "LightOnOCR-1B-1025-Q8_0.gguf" "mmproj-LightOnOCR-1B-1025-Q8_0.gguf"
+
+   # Qwen2-VL 2B Q4_K_M (stronger vision, ~1.5 GB total)
+   huggingface-cli download ggml-org/Qwen2-VL-2B-Instruct-GGUF \
+     --local-dir ./models/Qwen2-VL-2B-Instruct-GGUF \
+     --include "*Q4_K_M*.gguf" "*mmproj*.gguf"
+   ```
+
+   Or let LocalLens download automatically on first run (uses HF Hub cache at `~/.cache/huggingface/hub`).
+
+3. **Start the server**
+
+   ```bash
+   # LightOnOCR (port 8011)
+   ./llama-server \
+     --hf-repo ggml-org/LightOnOCR-1B-1025-GGUF \
+     --port 8011 --host 127.0.0.1 \
+     --n-gpu-layers 99 --ctx-size 8192 \
+     --chat-template lighton-ocr
+
+   # Qwen2-VL (port 8012)
+   ./llama-server \
+     --hf-repo ggml-org/Qwen2-VL-2B-Instruct-GGUF \
+     --port 8012 --host 127.0.0.1 \
+     --n-gpu-layers 99 --ctx-size 4096 \
+     --chat-template qwen2-vl
+   ```
+
+   Key flags:
+   - `--n-gpu-layers 99` — offload all possible layers to GPU
+   - `--ctx-size` — context window (LightOnOCR: 8192, Qwen2-VL: 4096+)
+   - `--chat-template` — must match the model (see presets for exact names)
+
+4. **Configure LocalLens**
+
+   - Open Settings → Source = **Local GPU** (`bundlato`)
+   - **URL** = `http://127.0.0.1:8011/v1/chat/completions` (or your server's URL with `/v1/chat/completions`)
+   - **Model** = leave empty to use preset, or specify the model ID
+   - **Prompt** = `Transcribe the document text exactly. No commentary.`
+   - Save → the app will health-check the server and show "GPU locale" status
+
+5. **Verify**
+
+   Open a PDF or image in LocalLens. The engine badge should show "● Locale • http://127.0.0.1:8011/v1/chat/completions" and processing uses the GPU model.
+
 ## External models via OpenRouter (free tier)
 
 `SorgenteModello = esterno` works with any OpenAI-compatible endpoint. The easiest way to try cloud OCR without a local GPU is [OpenRouter](https://openrouter.ai/models?max_price=0) — it proxies many providers behind `https://openrouter.ai/api/v1/chat/completions`.
