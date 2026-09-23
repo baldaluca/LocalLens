@@ -118,6 +118,7 @@ def costruisci(conf, info, preset, gestore=None, crea=None, solo_cpu=None, pesi=
                 t(lingua, "banner_esterno_non_configurato"),
             )
         banner_priv = "" if is_url_privata(url) else t(lingua, "banner_privacy_url")
+        banner_ok = banner_priv
         if verifica(url):
             # se modello_esterno esplicito → crea_cloud verbatim, altrimenti preset (bundlato)
             if (d.get("modello_esterno") or "").strip():
@@ -125,7 +126,6 @@ def costruisci(conf, info, preset, gestore=None, crea=None, solo_cpu=None, pesi=
                     from locallens.core.orchestrator import (
                         crea_engine_cloud as _crea_cloud,
                     )
-
                     crea_cloud = _crea_cloud
                 engine = crea_cloud(
                     url,
@@ -136,19 +136,17 @@ def costruisci(conf, info, preset, gestore=None, crea=None, solo_cpu=None, pesi=
                     contrasto=d.get("contrasto", False),
                     **_contesto(d),
                 )
-                return engine, t(lingua, "stato_esterno", url=url), banner_priv
-            return (
-                crea(
+                return engine, t(lingua, "stato_esterno", url=url), banner_ok
+            else:
+                engine = crea(
                     url,
                     preset,
                     motore="bundlato",
                     max_side=d.get("max_side_px", 2048),
                     contrasto=d.get("contrasto", False),
                     **_contesto(d),
-                ),
-                t(lingua, "stato_gpu_locale", url=url),
-                banner_priv,
-            )
+                )
+                return engine, t(lingua, "stato_gpu_locale", url=url), banner_ok
         if solo_cpu is None:
             solo_cpu = _solo_cpu_default
         motivo = t(lingua, "motivo_gpu_non_raggiungibile", url=url)
@@ -266,7 +264,7 @@ class EngineFactory:
             banner_priv = "" if is_url_privata(url) else t(lingua, "banner_privacy_url")
             banner_ok = "; ".join(b for b in (avviso, banner_priv) if b)
             if self._verify(url):
-                # infer verbatim: se modello_esterno esplicito usa esterno, altrimenti preset (bundlato)
+                # infer verbatim: usa sorgente per decidere, non modello_esterno
                 if (d.get("modello_esterno") or "").strip():
                     infer = self._make_infer("esterno", url, preset, d)
                     sorg_infer = "esterno"
@@ -276,16 +274,14 @@ class EngineFactory:
                     sorg_infer = "bundlato"
                     stato = t(lingua, "stato_gpu_locale", url=url)
                 from locallens.fallback.tesseract import estrai as tesseract_estrai
-
                 fallback_fn = lambda pid, png: tesseract_estrai(png)
-                engine = OcrEngine(
-                    infer=infer, fallback=fallback_fn, sorgente=sorg_infer, **_contesto(d)
-                )
+                engine = OcrEngine(infer=infer, fallback=fallback_fn, sorgente=sorg_infer, **_contesto(d))
                 return engine, stato, banner_ok
-            motivo = t(lingua, "motivo_gpu_non_raggiungibile", url=url)
-            banner_base = t(lingua, "banner_solo_cpu_assente", url=url)
-            banner = "; ".join(b for b in (avviso, banner_base) if b)
-            return _solo_cpu_default(motivo), t(lingua, "stato_gpu_solo_cpu"), banner
+        # fallback: server not reachable → solo CPU
+        motivo = t(lingua, "motivo_gpu_non_raggiungibile", url=url)
+        banner_base = t(lingua, "banner_solo_cpu_assente", url=url)
+        banner = "; ".join(b for b in (avviso, banner_base) if b)
+        return _solo_cpu_default(motivo), t(lingua, "stato_gpu_solo_cpu"), banner
 
         # fallback sconosciuto
         banner = avviso or ""
