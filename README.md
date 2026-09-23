@@ -78,14 +78,7 @@ Free models rotate monthly; verify live at `https://openrouter.ai/models?max_pri
 | Model ID | Notes | Context |
 |---|---|---|
 | `inclusionai/ling-3.0-flash-vl:free` | **Recommended for OCR** — 124B MoE, explicitly vision-capable (`image+video → text`), best document-text fidelity | 262K |
-| `nex-agi/nex-n2.5-pro:free` | Strong general VLM, good on dense documents | 262K |
-| `nex-agi/nex-n2.5-mini:free` | Smaller/faster sibling of Pro | 262K |
-| `qwen/qwen3.8-27b:free` | Qwen VL series, 32-language OCR coverage | 262K |
-| `dots-studio/dots-3-note-preview:free` | Preview model tuned for document notes | 512K |
-| `thinkingmachines/inkling:free` | 1M context, multimodal `image+audio` | 1M |
-| `thinkingmachines/inkling-small:free` | Smaller Inkling variant | 1M |
-| `google/gemma-4-31b-it:free` | Gemma 4 vision, good latency | 262K |
-| `google/gemma-4-26b-a4b-it:free` | Smaller Gemma 4 | 262K |
+| `thinkingmachines/inkling-small:free` | Smaller Inkling variant, 1M context multimodal | 1M |
 | `nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free` | Omni-modal `image+video+audio → text`, reasoning | 256K |
 
 Other free text-only models (e.g. `nvidia/nemotron-3-ultra-550b-a55b:free`, `poolside/laguna-*`) are **not** suitable for OCR — they lack vision input.
