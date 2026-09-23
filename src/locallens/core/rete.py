@@ -46,11 +46,15 @@ def verifica_health(base_url: str, timeout: float = 2) -> bool:
     def _get_ok(url: str) -> bool:
         try:
             with urllib.request.urlopen(url, timeout=timeout) as r:
-                return r.status == 200
+-                return r.status == 200
++                # Consider any successful HTTP response (no exception) as health OK.
++                # Some endpoints (e.g., POST‑only) may return 405 on GET but the server is reachable.
++                return True
         except (OSError, ValueError):
             return False
         except Exception:  # noqa: BLE001 - verifica_health mai eccezioni, anche HTTPError/URLError
             return False
+
 
     d = dialetto(base_url)
     if d == "ollama":
