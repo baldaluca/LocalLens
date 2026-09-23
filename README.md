@@ -110,14 +110,6 @@ curl -X POST https://openrouter.ai/api/v1/chat/completions \
   }'
 ```
 
-## Testing on Windows
-
-No dual-boot needed:
-
-* **CI:** push → GitHub Actions matrix `ubuntu-latest + windows-latest` runs `uv sync`, `pytest -q`, `ruff`, `mypy`, `fetch-binaries --os <runner-os> --all` + `pyinstaller locallens.spec` + offscreen smoke, then uploads `dist/locallens/` zip (`.github/workflows/ci.yml:9`)
-* **VM local:** KVM/VirtualBox, Win 10/11 evaluation, 60 GB / 4 GB RAM, virtual VGA — see `docs/windows-vm-checklist.md`
-* **Hardware smoke:** `win32/cuda-12.4` only on physical Windows+NVIDIA (e.g. RTX 4050) — protocol in `docs/windows-vm-checklist.md:15`
-
 ## Configuration
 
 Settings persist to the user config (`XDG`/`APPDATA`) except the API token, which is never written to disk. The typed `Config` module (`src/locallens/config/settings.py:64`) owns `lingua | sorgente | url_esterno | url_gpu_locale | preset_id | max_side_px | contrasto | lingue_filtro | soglia_righe_loop | ignora_eco | tema`. The anti-self-hit filter (languages, loop threshold, prompt-echo ignore) is tunable from Settings. See `config.example.toml` (includes OpenRouter example).
