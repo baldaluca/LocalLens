@@ -49,7 +49,12 @@ def verifica_health(base_url: str, timeout: float = 2) -> bool:
                 # Any successful HTTP response (no exception) means the server is reachable.
                 # Some endpoints (e.g., POST‑only) may return non‑200 status on GET but the server is up.
                 return True
+        except urllib.error.HTTPError:
+            # Server responded with an HTTP error (4xx, 5xx) → server is reachable.
+            return True
         except (OSError, ValueError):
+            return False
+        except Exception:  # noqa: BLE001 - verifica_health never raises, also catches URLError
             return False
         except Exception:  # noqa: BLE001 - verifica_health never raises, also catches HTTPError/URLError
             return False
