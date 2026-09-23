@@ -20,3 +20,12 @@ def percorso_freccia(tema: str, direzione: str) -> str:
     if candidato.is_file():
         return str(candidato)
     raise FileNotFoundError(f"freccia non trovata: {candidato}")
+
+
+def percorso_spunta() -> str:
+    """Icona check bianca per QCheckBox::indicator:checked (su sfondo primary)."""
+    for ext in ("png", "svg"):
+        candidato = risorsa("assets", "icons", f"spunta.{ext}")
+        if candidato.is_file():
+            return str(candidato)
+    raise FileNotFoundError("spunta non trovata in assets/icons/")

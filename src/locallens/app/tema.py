@@ -70,7 +70,7 @@ def qss(nome: str) -> str:
         t = TEMI[nome]
     except KeyError:
         raise ValueError(f"tema ignoto: {nome} (chiaro|scuro)") from None
-    from locallens.app.icone import percorso_freccia
+    from locallens.app.icone import percorso_freccia, percorso_spunta
 
     def url(tema_nome: str, direzione: str) -> str:
         from pathlib import Path
@@ -78,6 +78,12 @@ def qss(nome: str) -> str:
         return Path(percorso_freccia(tema_nome, direzione)).as_posix()
 
     giu, su = url(nome, "giu"), url(nome, "su")
+    from pathlib import Path as _P
+
+    try:
+        spunta = _P(percorso_spunta()).as_posix()
+    except FileNotFoundError:
+        spunta = ""
     return f"""
 QMainWindow, QDialog, QWidget#centrale {{ background: {t['background']}; font-size: 14px; }}
 QLabel {{ color: {t['foreground']}; }}
@@ -127,5 +133,10 @@ QSpinBox::up-button, QSpinBox::down-button {{ background: {t['surface']};
   border: 1px solid {t['border']}; }}
 QLabel#suggerimento {{ color: {t['muted']}; font-size: 12px; }}
 QCheckBox {{ color: {t['foreground']}; spacing: 8px; }}
+QCheckBox::indicator {{ width: 18px; height: 18px; border: 1.5px solid {t['muted']}; border-radius: 4px; background: {t['input_bg']}; }}
+QCheckBox::indicator:hover {{ border-color: {t['primary']}; }}
+QCheckBox::indicator:checked {{ background: {t['primary']}; border-color: {t['primary']}; image: url("{spunta}"); }}
+QCheckBox::indicator:checked:hover {{ background: {t['primary_pressa']}; border-color: {t['primary_pressa']}; }}
+QCheckBox::indicator:disabled {{ background: {t['surface']}; border-color: {t['border']}; }}
 QLabel#avviso {{ color: #DC2626; }}
 """
