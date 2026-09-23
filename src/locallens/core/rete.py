@@ -1,6 +1,7 @@
 """Utilità rete e percorsi binari: nessuna dipendenza da backend o subprocess."""
 
 import ipaddress
+import urllib.request
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -38,11 +39,29 @@ def resolve_binary(platform: str, backend_gpu: str, bins_root: str | None = None
 
 
 def verifica_health(base_url: str, timeout: float = 2) -> bool:
-    """True se GET {base_url}/health risponde 200. Mai eccezioni."""
-    import urllib.request
+    """True se GET su endpoint dialetto-aware risponde 200. Mai eccezioni."""
 
-    try:
-        with urllib.request.urlopen(base_url.rstrip("/") + "/health", timeout=timeout) as r:
-            return r.status == 200
-    except (OSError, ValueError):
-        return False
+    from locallens.core.client import dialetto
+
+    def _get_ok(url: str) -> bool:
+        try:
+            with urllib.request.urlopen(url, timeout=timeout) as r:
+                return r.status == 200
+        except (OSError, ValueError):
+            return False
+        except Exception:  # noqa: BLE001 - verifica_health mai eccezioni, anche HTTPError/URLError
+            return False
+
+    d = dialetto(base_url)
+    if d == "ollama":
+        base = base_url.rstrip("/").removesuffix("/api/chat").rstrip("/")
+        if not base:
+            base = base_url.rstrip("/")
+        return _get_ok(base + "/api/tags")
+    # openai-compat: prova /v1/models → /health → base stessa
+    base = base_url.rstrip("/")
+    for suffix in ("/v1/models", "/health", ""):
+        cand = base + suffix if not base.endswith(suffix) or suffix == "" else base
+        if _get_ok(cand):
+            return True
+    return False
